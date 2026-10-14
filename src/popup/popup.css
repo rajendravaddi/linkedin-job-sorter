@@ -1,0 +1,421 @@
+/* =============================================================================
+   LinkedIn Job Sorter — popup.css
+   Clean, modern styles with CSS custom properties and dark mode support.
+   ============================================================================= */
+
+/* ── Custom Properties ──────────────────────────────────────────────────────── */
+:root {
+  --color-bg: #ffffff;
+  --color-bg-header: #f8f9fa;
+  --color-bg-card: #ffffff;
+  --color-bg-card-hover: #f5f7fa;
+  --color-bg-controls: #f0f2f5;
+  --color-border: #d1d5db;
+  --color-border-card: #e5e7eb;
+  --color-text-primary: #111827;
+  --color-text-secondary: #6b7280;
+  --color-text-muted: #9ca3af;
+  --color-accent: #0a66c2;
+  --color-accent-hover: #0856a8;
+  --color-badge-early: #065f46;
+  --color-badge-early-bg: #d1fae5;
+  --color-badge-easy: #1e40af;
+  --color-badge-easy-bg: #dbeafe;
+  --color-badge-viewed: #374151;
+  --color-badge-viewed-bg: #f3f4f6;
+  --color-badge-verified: #92400e;
+  --color-badge-verified-bg: #fef3c7;
+  --color-posted: #0a66c2;
+  --color-status-bg: #fffbeb;
+  --color-status-border: #fcd34d;
+  --radius-card: 8px;
+  --radius-badge: 4px;
+  --radius-btn: 6px;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --font-size-title: 14px;
+  --font-size-meta: 12px;
+  --font-size-badge: 11px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #1a1a2e;
+    --color-bg-header: #16213e;
+    --color-bg-card: #1e2a3a;
+    --color-bg-card-hover: #243447;
+    --color-bg-controls: #16213e;
+    --color-border: #374151;
+    --color-border-card: #2d3748;
+    --color-text-primary: #f3f4f6;
+    --color-text-secondary: #9ca3af;
+    --color-text-muted: #6b7280;
+    --color-accent: #60a5fa;
+    --color-accent-hover: #93c5fd;
+    --color-badge-early: #6ee7b7;
+    --color-badge-early-bg: #064e3b;
+    --color-badge-easy: #93c5fd;
+    --color-badge-easy-bg: #1e3a5f;
+    --color-badge-viewed: #d1d5db;
+    --color-badge-viewed-bg: #374151;
+    --color-badge-verified: #fcd34d;
+    --color-badge-verified-bg: #451a03;
+    --color-posted: #60a5fa;
+    --color-status-bg: #1c1400;
+    --color-status-border: #78350f;
+  }
+}
+
+/* ── Reset & Base ────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  line-height: 1.4;
+}
+
+/* ── Popup sizing ────────────────────────────────────────────────────────────── */
+body {
+  width: 420px;
+  max-height: 600px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 600px;
+  overflow: hidden;
+}
+
+/* ── Full-tab mode ───────────────────────────────────────────────────────────── */
+body.tab-mode {
+  width: 100%;
+  max-height: 100vh;
+  overflow: auto;
+}
+
+body.tab-mode #app {
+  max-width: 900px;
+  margin: 0 auto;
+  max-height: none;
+  height: auto;
+}
+
+body.tab-mode .job-list {
+  max-height: none;
+  overflow-y: visible;
+}
+
+/* ── Sticky Header ───────────────────────────────────────────────────────────── */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-bg-header);
+  border-bottom: 1px solid var(--color-border);
+  padding: 10px 12px 8px;
+  flex-shrink: 0;
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.header-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+.header-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.job-count {
+  font-size: var(--font-size-meta);
+  color: var(--color-text-secondary);
+  margin-bottom: 2px;
+}
+
+.search-context {
+  font-size: var(--font-size-meta);
+  color: var(--color-text-secondary);
+}
+
+.notice {
+  font-size: var(--font-size-meta);
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────────── */
+button {
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-btn);
+  padding: 4px 10px;
+  font-size: var(--font-size-meta);
+  line-height: 1.4;
+  transition: background 0.1s;
+}
+
+button:hover {
+  background: var(--color-bg-card-hover);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+#btn-refresh {
+  background: var(--color-accent);
+  color: #fff;
+  border-color: var(--color-accent);
+}
+
+#btn-refresh:hover {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+/* ── Controls ────────────────────────────────────────────────────────────────── */
+.controls {
+  background: var(--color-bg-controls);
+  border-bottom: 1px solid var(--color-border);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.controls label[for="sort-select"] {
+  font-size: var(--font-size-meta);
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+select, input[type="text"] {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-btn);
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-meta);
+  font-family: inherit;
+}
+
+select:focus, input[type="text"]:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 0;
+  border-color: var(--color-accent);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-meta);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-label input[type="checkbox"] {
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ── Status Area ─────────────────────────────────────────────────────────────── */
+.status {
+  padding: 8px 12px;
+  font-size: var(--font-size-meta);
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+  background: var(--color-status-bg);
+}
+
+.status:empty {
+  display: none;
+}
+
+/* ── Job List ────────────────────────────────────────────────────────────────── */
+.job-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── Job Card ────────────────────────────────────────────────────────────────── */
+.job-card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-card);
+  border-radius: var(--radius-card);
+  padding: 10px 12px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.job-card:hover {
+  background: var(--color-bg-card-hover);
+  border-color: var(--color-border);
+}
+
+.job-title {
+  font-size: var(--font-size-title);
+  font-weight: 700;
+  color: var(--color-accent);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.job-title:hover {
+  text-decoration: underline;
+  color: var(--color-accent-hover);
+}
+
+.job-title:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.job-subtitle {
+  font-size: var(--font-size-meta);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.job-posted {
+  font-size: var(--font-size-meta);
+  color: var(--color-posted);
+  font-weight: 500;
+}
+
+.job-posted-muted {
+  font-size: var(--font-size-meta);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* ── Badges ──────────────────────────────────────────────────────────────────── */
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.badge {
+  display: inline-block;
+  font-size: var(--font-size-badge);
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: var(--radius-badge);
+  line-height: 1.4;
+}
+
+.badge-early {
+  color: var(--color-badge-early);
+  background: var(--color-badge-early-bg);
+}
+
+.badge-easy {
+  color: var(--color-badge-easy);
+  background: var(--color-badge-easy-bg);
+}
+
+.badge-viewed {
+  color: var(--color-badge-viewed);
+  background: var(--color-badge-viewed-bg);
+}
+
+.badge-verified {
+  color: var(--color-badge-verified);
+  background: var(--color-badge-verified-bg);
+}
+
+/* ── Job Footer ──────────────────────────────────────────────────────────────── */
+.job-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  gap: 8px;
+}
+
+.job-id {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.btn-open {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-color: var(--color-border);
+}
+
+/* ── Partial Times Notice ────────────────────────────────────────────────────── */
+.partial-notice {
+  padding: 6px 12px;
+  font-size: var(--font-size-meta);
+  color: var(--color-text-secondary);
+  background: var(--color-status-bg);
+  border-top: 1px solid var(--color-status-border);
+  flex-shrink: 0;
+}
+
+/* ── Clear Filters Button ────────────────────────────────────────────────────── */
+.btn-clear-filters {
+  margin-top: 6px;
+  display: inline-block;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────────── */
+.job-list::-webkit-scrollbar {
+  width: 6px;
+}
+.job-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.job-list::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+.job-list::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+

@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "LinkedIn Job Sorter",
+  "version": "0.1.0",
+  "description": "Sorts the LinkedIn job results you are viewing by estimated posting age.",
+  "permissions": ["scripting"],
+  "host_permissions": ["https://www.linkedin.com/*"],
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "LinkedIn Job Sorter"
+  },
+  "background": {
+    "service_worker": "src/background/service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.linkedin.com/*"],
+      "js": [
+        "src/shared/messages.js",
+        "src/lib/posted-time-parser.js",
+        "src/lib/search-context.js",
+        "src/lib/deduplicate-jobs.js",
+        "src/lib/card-extractor.js",
+        "src/content/content-script.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
+

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head><meta charset='UTF-8'><title>Multi-cards fixture</title></head>
+<body>
+
+<!-- Unrelated page navigation - must NOT be extracted as jobs -->
+<nav id='site-nav'>
+  <a href='/feed/'>Home</a>
+  <a href='/jobs/'>Jobs</a>
+  <a href='/messaging/'>Messaging</a>
+</nav>
+
+<!-- Card 1: Reposted 2 days ago (id: 9901000001) -->
+<div role='button' tabindex='0' componentkey='job-card-component-ref-9901000001'>
+  <div componentkey='job-card-component-ref-9901000001'>
+    <div>
+      <p><span class='sr'>Senior Data Engineer</span><span aria-hidden='true'>Senior Data Engineer</span></p>
+      <div><p>DataCorp Inc</p></div>
+      <p>San Francisco, CA (Hybrid)</p>
+      <button type='button' aria-label='Dismiss Senior Data Engineer job'></button>
+      <div>
+        <p><span class='sr'>Reposted 2 days ago</span><span aria-hidden='true'>2 days ago</span></p>
+        <p> · </p>
+        <p>Promoted</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Card 2: Duplicate of card 1 - same componentkey, separate DOM node -->
+<div role='button' tabindex='0' componentkey='job-card-component-ref-9901000001'>
+  <div componentkey='job-card-component-ref-9901000001'>
+    <div>
+      <p><span class='sr'>Senior Data Engineer</span><span aria-hidden='true'>Senior Data Engineer</span></p>
+      <div><p>DataCorp Inc</p></div>
+      <p>San Francisco, CA (Hybrid)</p>
+      <button type='button' aria-label='Dismiss Senior Data Engineer job'></button>
+      <div>
+        <p><span class='sr'>Reposted 2 days ago</span><span aria-hidden='true'>2 days ago</span></p>
+        <p> · </p>
+        <p>Promoted</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Card 3: Missing company and location (id: 9901000003) -->
+<div role='button' tabindex='0' componentkey='job-card-component-ref-9901000003'>
+  <div componentkey='job-card-component-ref-9901000003'>
+    <div>
+      <p><span class='sr'>UX Researcher</span><span aria-hidden='true'>UX Researcher</span></p>
+      <button type='button' aria-label='Dismiss UX Researcher job'></button>
+      <div>
+        <p><span class='sr'>Posted 3 days ago</span><span aria-hidden='true'>3 days ago</span></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Card 4: No title - should be skipped as malformed (id: 9901000004) -->
+<!-- No <p> elements and no Dismiss button aria-label with title pattern -->
+<div role='button' tabindex='0' componentkey='job-card-component-ref-9901000004'>
+  <div componentkey='job-card-component-ref-9901000004'>
+    <div>
+      <figure aria-hidden='true'><img alt='' src='logo.png'></figure>
+    </div>
+  </div>
+</div>
+
+
+<!-- Card 5: Easy Apply and Promoted (id: 9901000005) -->
+<div role='button' tabindex='0' componentkey='job-card-component-ref-9901000005'>
+  <div componentkey='job-card-component-ref-9901000005'>
+    <div>
+      <p><span class='sr'>Frontend Engineer</span><span aria-hidden='true'>Frontend Engineer</span></p>
+      <div><p>WebStudio Ltd</p></div>
+      <p>Remote (Remote)</p>
+      <button type='button' aria-label='Dismiss Frontend Engineer job'></button>
+      <div>
+        <p><span class='sr'>Posted 1 week ago</span><span aria-hidden='true'>1 week ago</span></p>
+        <p> · </p>
+        <p>Promoted</p>
+        <p> · </p>
+        <div><svg></svg><p>Easy Apply</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Unrelated footer - must NOT be extracted as jobs -->
+<footer id='site-footer'>
+  <p>© 2024 LinkedIn</p>
+  <p>About us</p>
+</footer>
+
+</body>
+</html>

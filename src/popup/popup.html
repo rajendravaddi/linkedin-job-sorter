@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinkedIn Job Sorter</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <div class="header-top">
+        <h1 class="header-title">LinkedIn Job Sorter</h1>
+        <div class="header-actions">
+          <button id="btn-refresh" aria-label="Refresh jobs">Refresh</button>
+          <button id="btn-open-tab" aria-label="Open in full tab">Full tab</button>
+        </div>
+      </div>
+      <div id="job-count" class="job-count"></div>
+      <div id="search-context" class="search-context"></div>
+      <div id="notice" class="notice" aria-live="polite"></div>
+    </header>
+
+    <div class="controls">
+      <label for="sort-select">Sort:</label>
+      <select id="sort-select" aria-label="Sort order">
+        <option value="newest">Estimated newest first</option>
+        <option value="oldest">Estimated oldest first</option>
+        <option value="original">Original LinkedIn order</option>
+      </select>
+
+      <input type="text" id="filter-query" placeholder="Filter by title or company" aria-label="Filter by title or company">
+
+      <label class="checkbox-label">
+        <input type="checkbox" id="filter-known-time"> Known posting time only
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" id="filter-hide-viewed"> Hide viewed
+      </label>
+      <label class="checkbox-label" id="easy-apply-label" style="display:none">
+        <input type="checkbox" id="filter-easy-apply"> Easy Apply only
+      </label>
+    </div>
+
+    <div id="status" class="status" aria-live="polite"></div>
+    <div id="job-list" class="job-list" role="list"></div>
+  </div>
+
+  <script src="../shared/messages.js"></script>
+  <script src="../lib/posted-time-parser.js"></script>
+  <script src="../lib/search-context.js"></script>
+  <script src="../lib/deduplicate-jobs.js"></script>
+  <script src="../lib/job-sorter.js"></script>
+  <script src="../lib/job-filter.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
+
