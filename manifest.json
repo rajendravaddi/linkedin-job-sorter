@@ -1,13 +1,15 @@
 {
   "manifest_version": 3,
   "name": "LinkedIn Job Sorter",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Sorts the LinkedIn job results you are viewing by estimated posting age.",
-  "permissions": ["scripting"],
+  "permissions": ["scripting", "sidePanel", "tabs"],
   "host_permissions": ["https://www.linkedin.com/*"],
   "action": {
-    "default_popup": "src/popup/popup.html",
     "default_title": "LinkedIn Job Sorter"
+  },
+  "side_panel": {
+    "default_path": "src/popup/popup.html"
   },
   "background": {
     "service_worker": "src/background/service-worker.js"
@@ -27,4 +29,3 @@
     }
   ]
 }
-

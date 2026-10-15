@@ -21,11 +21,12 @@
    * @param {boolean} [options.knownTimeOnly] - Keep only jobs where ageMinutes !== null.
    * @param {boolean} [options.easyApplyOnly] - Keep only jobs where easyApply === true.
    * @param {boolean} [options.hideViewed]    - Keep only jobs where viewed !== true.
+   * @param {boolean} [options.hideApplied]   - Keep only jobs where applied !== true.
    * @returns {Object[]} Filtered array (does NOT mutate input).
    */
   function filterJobs(jobs, options) {
     if (!options) options = {};
-    const { query, knownTimeOnly, easyApplyOnly, hideViewed } = options;
+    const { query, knownTimeOnly, easyApplyOnly, hideViewed, hideApplied } = options;
 
     // Prepare query needle once
     const needle = query ? String(query).trim().toLowerCase() : '';
@@ -46,6 +47,9 @@
 
       // Hide viewed jobs
       if (hideViewed && job.viewed === true) return false;
+
+      // Hide applied jobs
+      if (hideApplied && job.applied === true) return false;
 
       return true;
     });

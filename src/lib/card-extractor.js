@@ -241,6 +241,7 @@
 
     let postingParagraph = null;    // Element
     let viewed = null;
+    let applied = null;
     let earlyApplicant = null;
     let easyApply = null;
     let promoted = null;
@@ -265,6 +266,7 @@
       }
 
       if (/^viewed$/i.test(lower)) { viewed = true; continue; }
+      if (/^applied(\s|$)/i.test(lower)) { applied = true; continue; }
       if (/^be an early applicant$/i.test(lower)) { earlyApplicant = true; continue; }
       if (/^easy apply$/i.test(lower)) { easyApply = true; continue; }
       if (/^promoted$/i.test(lower)) { promoted = true; continue; }
@@ -401,6 +403,7 @@
       easyApply: easyApply || null,
       promoted: promoted || null,
       viewed: viewed || null,
+      applied: applied || null,
       verified: verified || null,
       earlyApplicant: earlyApplicant || null,
       originalIndex,

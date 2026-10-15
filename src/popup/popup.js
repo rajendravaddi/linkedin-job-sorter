@@ -1,7 +1,12 @@
 /**
  * src/popup/popup.js
  *
- * Full popup logic for the LinkedIn Job Sorter extension.
+ * Side-panel logic for the LinkedIn Job Sorter extension.
+ * The panel persists across focus changes, unlike a popup.
+ *
+ * Refresh behaviour: reloads the LinkedIn tab completely so newly posted
+ * jobs scroll into the feed, then re-extracts once the page settles.
+ *
  * NEVER uses innerHTML — all DOM construction uses createElement + textContent.
  */
 
@@ -15,50 +20,36 @@
   const VALID_URL_RE = /^https:\/\/www\.linkedin\.com\/jobs\/view\/\d+\/?$/;
   const LINKEDIN_HOST = 'www.linkedin.com';
 
+  /**
+   * How long (ms) to wait after a tab's status becomes 'complete' before
+   * attempting extraction, to give JS frameworks time to render job cards.
+   */
+  const POST_LOAD_DELAY_MS = 1500;
+
   // ── State ──────────────────────────────────────────────────────────────────
 
   let allJobs = [];          // Full extracted job list (deduped)
   let searchContext = null;  // { keywords, location, dateFilterLabel }
-  let extractStats = null;   // Last extraction stats
-  let activeTabId = null;    // Tab we extracted from
-  let isTabMode = false;     // Whether we're open as a full browser tab
-  let sourceTabId = null;    // In tab mode, the original tab we should read from
+  let linkedInTabId = null;  // ID of the LinkedIn tab we're watching
+  let isRefreshing = false;  // Guard against concurrent refresh calls
 
   // ── DOM References ─────────────────────────────────────────────────────────
 
   const $ = id => document.getElementById(id);
 
-  const elApp         = $('app');
-  const elJobCount    = $('job-count');
-  const elSearchCtx   = $('search-context');
-  const elNotice      = $('notice');
-  const elStatus      = $('status');
-  const elJobList     = $('job-list');
-  const elSortSelect  = $('sort-select');
-  const elFilterQuery = $('filter-query');
-  const elKnownTime   = $('filter-known-time');
-  const elHideViewed  = $('filter-hide-viewed');
-  const elEasyApply   = $('filter-easy-apply');
-  const elEasyLabel   = $('easy-apply-label');
-  const elBtnRefresh  = $('btn-refresh');
-  const elBtnOpenTab  = $('btn-open-tab');
-
-  // ── Mode Detection ─────────────────────────────────────────────────────────
-
-  function detectMode() {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('view') === 'tab') {
-      isTabMode = true;
-      const sid = params.get('sourceTabId');
-      sourceTabId = sid ? parseInt(sid, 10) : null;
-
-      // Hide the "Open in full tab" button
-      elBtnOpenTab.style.display = 'none';
-
-      // Apply wider layout class
-      document.body.classList.add('tab-mode');
-    }
-  }
+  const elJobCount     = $('job-count');
+  const elSearchCtx    = $('search-context');
+  const elNotice       = $('notice');
+  const elStatus       = $('status');
+  const elJobList      = $('job-list');
+  const elSortSelect   = $('sort-select');
+  const elFilterQuery  = $('filter-query');
+  const elKnownTime    = $('filter-known-time');
+  const elHideViewed   = $('filter-hide-viewed');
+  const elHideApplied  = $('filter-hide-applied');
+  const elEasyApply    = $('filter-easy-apply');
+  const elEasyLabel    = $('easy-apply-label');
+  const elBtnRefresh   = $('btn-refresh');
 
   // ── UI helpers ─────────────────────────────────────────────────────────────
 
@@ -75,15 +66,10 @@
   }
 
   function setJobCount(shown, total) {
-    if (total === 0) {
-      elJobCount.textContent = '';
-      return;
-    }
-    if (shown === total) {
-      elJobCount.textContent = `${total} job${total === 1 ? '' : 's'}`;
-    } else {
-      elJobCount.textContent = `${shown} of ${total} job${total === 1 ? '' : 's'}`;
-    }
+    if (total === 0) { elJobCount.textContent = ''; return; }
+    elJobCount.textContent = shown === total
+      ? `${total} job${total === 1 ? '' : 's'}`
+      : `${shown} of ${total} job${total === 1 ? '' : 's'}`;
   }
 
   function renderSearchContext(ctx) {
@@ -92,15 +78,16 @@
     if (ctx.keywords)        parts.push(`"${ctx.keywords}"`);
     if (ctx.location)        parts.push(ctx.location);
     if (ctx.dateFilterLabel) parts.push(ctx.dateFilterLabel);
-    elSearchCtx.textContent = parts.length ? parts.join(' · ') : '';
+    elSearchCtx.textContent = parts.join(' · ');
+  }
+
+  function setBtnRefreshBusy(busy) {
+    elBtnRefresh.disabled = busy;
+    elBtnRefresh.textContent = busy ? 'Refreshing…' : 'Refresh';
   }
 
   // ── Job card DOM builder (no innerHTML) ────────────────────────────────────
 
-  /**
-   * Build a subtitle string from company, location, workplaceType.
-   * Omits nulls; never produces a dangling ·.
-   */
   function buildSubtitle(job) {
     const parts = [];
     if (job.company)       parts.push(job.company);
@@ -109,11 +96,6 @@
     return parts.join(' · ');
   }
 
-  /**
-   * Create a badge <span> element.
-   * @param {string} text
-   * @param {string} cls  - CSS class for colour variant
-   */
   function makeBadge(text, cls) {
     const span = document.createElement('span');
     span.className = `badge ${cls}`;
@@ -121,17 +103,12 @@
     return span;
   }
 
-  /**
-   * Build and return a job card <div> element.
-   * @param {Object} job
-   * @returns {HTMLElement}
-   */
   function buildJobCard(job) {
     const card = document.createElement('div');
     card.className = 'job-card';
     card.setAttribute('role', 'listitem');
 
-    // ── Title (link or span) ────────────────────────────────────────────────
+    // ── Title ───────────────────────────────────────────────────────────────
     const validUrl = job.url && VALID_URL_RE.test(job.url) ? job.url : null;
 
     let titleEl;
@@ -151,7 +128,7 @@
     }
     card.appendChild(titleEl);
 
-    // ── Subtitle: Company · Location · WorkplaceType ────────────────────────
+    // ── Subtitle ─────────────────────────────────────────────────────────────
     const subtitle = buildSubtitle(job);
     if (subtitle) {
       const subEl = document.createElement('div');
@@ -160,12 +137,15 @@
       card.appendChild(subEl);
     }
 
-    // ── Posting time ────────────────────────────────────────────────────────
+    // ── Posting time ─────────────────────────────────────────────────────────
     const postedEl = document.createElement('div');
     if (job.ageMinutes != null) {
       postedEl.className = 'job-posted';
       const label = job.postedText || `${job.ageMinutes} min ago`;
       postedEl.textContent = `${label} (approx.)`;
+    } else if (job.applied === true) {
+      postedEl.className = 'job-posted-muted';
+      postedEl.textContent = 'Applied — LinkedIn hides the posting time';
     } else if (job.viewed === true) {
       postedEl.className = 'job-posted-muted';
       postedEl.textContent = 'Viewed — LinkedIn hides the posting time';
@@ -174,23 +154,26 @@
       postedEl.textContent = 'Posting time not shown';
     } else {
       postedEl.className = 'job-posted-muted';
-      postedEl.textContent = job.postedText ? `${job.postedText} (unrecognized format)` : 'Posting time not shown';
+      postedEl.textContent = job.postedText
+        ? `${job.postedText} (unrecognized format)`
+        : 'Posting time not shown';
     }
     card.appendChild(postedEl);
 
-    // ── Badges ───────────────────────────────────────────────────────────────
+    // ── Badges ────────────────────────────────────────────────────────────────
     const badges = document.createElement('div');
     badges.className = 'badges';
     let hasBadges = false;
 
-    if (job.earlyApplicant === true) { badges.appendChild(makeBadge('Early applicant', 'badge-early')); hasBadges = true; }
-    if (job.easyApply      === true) { badges.appendChild(makeBadge('Easy Apply',       'badge-easy'));  hasBadges = true; }
-    if (job.viewed         === true) { badges.appendChild(makeBadge('Viewed',           'badge-viewed')); hasBadges = true; }
+    if (job.earlyApplicant === true) { badges.appendChild(makeBadge('Early applicant', 'badge-early'));   hasBadges = true; }
+    if (job.easyApply      === true) { badges.appendChild(makeBadge('Easy Apply',       'badge-easy'));    hasBadges = true; }
+    if (job.applied        === true) { badges.appendChild(makeBadge('Applied',          'badge-applied')); hasBadges = true; }
+    if (job.viewed         === true) { badges.appendChild(makeBadge('Viewed',           'badge-viewed'));  hasBadges = true; }
     if (job.verified       === true) { badges.appendChild(makeBadge('Verified',         'badge-verified')); hasBadges = true; }
 
     if (hasBadges) card.appendChild(badges);
 
-    // ── Footer: Job ID + Open button ─────────────────────────────────────────
+    // ── Footer ────────────────────────────────────────────────────────────────
     const footer = document.createElement('div');
     footer.className = 'job-footer';
 
@@ -221,40 +204,40 @@
   // ── Render ─────────────────────────────────────────────────────────────────
 
   function renderJobs() {
-    const mode     = elSortSelect.value;
-    const query    = elFilterQuery.value;
+    const mode         = elSortSelect.value;
+    const query        = elFilterQuery.value;
     const knownTimeOnly = elKnownTime.checked;
-    const hideViewed    = elHideViewed.checked;
+    const hideViewed   = elHideViewed.checked;
+    const hideApplied  = elHideApplied.checked;
     const easyApplyOnly = elEasyApply.checked;
 
-    // Apply sort then filter
     const sorted   = LJS.sortJobs(allJobs, mode);
-    const filtered = LJS.filterJobs(sorted, { query, knownTimeOnly, easyApplyOnly, hideViewed });
+    const filtered = LJS.filterJobs(sorted, { query, knownTimeOnly, easyApplyOnly, hideViewed, hideApplied });
 
-    const total   = allJobs.length;
-    const shown   = filtered.length;
+    const total = allJobs.length;
+    const shown = filtered.length;
 
     setJobCount(shown, total);
     renderSearchContext(searchContext);
 
-    // Show / hide Easy Apply checkbox based on whether any job has it
+    // Show Easy Apply checkbox only when relevant
     const hasEasyApply = allJobs.some(j => j.easyApply === true);
     elEasyLabel.style.display = hasEasyApply ? '' : 'none';
 
-    // Clear job list
+    // Clear list
     while (elJobList.firstChild) elJobList.removeChild(elJobList.firstChild);
 
     if (total > 0 && shown === 0) {
-      // Filters produced empty result — show message + clear button
       setStatus('No jobs match the current filters.');
       const clearBtn = document.createElement('button');
       clearBtn.className = 'btn-clear-filters';
       clearBtn.textContent = 'Clear filters';
       clearBtn.addEventListener('click', function () {
-        elFilterQuery.value = '';
-        elKnownTime.checked = false;
-        elHideViewed.checked = false;
-        elEasyApply.checked = false;
+        elFilterQuery.value   = '';
+        elKnownTime.checked   = false;
+        elHideViewed.checked  = false;
+        elHideApplied.checked = false;
+        elEasyApply.checked   = false;
         renderJobs();
       });
       elStatus.appendChild(clearBtn);
@@ -267,37 +250,45 @@
     const unknownCount = filtered.filter(j => j.ageMinutes === null).length;
     const knownCount   = filtered.filter(j => j.ageMinutes !== null).length;
     if (unknownCount > 0 && knownCount > 0) {
-      setNotice(`Note: ${unknownCount} job${unknownCount > 1 ? 's' : ''} ${unknownCount > 1 ? 'have' : 'has'} no posting time and appear${unknownCount > 1 ? '' : 's'} at the end.`);
+      setNotice(
+        `Note: ${unknownCount} job${unknownCount > 1 ? 's' : ''} ` +
+        `${unknownCount > 1 ? 'have' : 'has'} no posting time and ` +
+        `appear${unknownCount > 1 ? '' : 's'} at the end.`
+      );
     } else {
       setNotice('');
     }
 
-    // Render job cards
     const fragment = document.createDocumentFragment();
-    for (const job of filtered) {
-      fragment.appendChild(buildJobCard(job));
-    }
+    for (const job of filtered) fragment.appendChild(buildJobCard(job));
     elJobList.appendChild(fragment);
   }
 
   // ── Tab resolution ─────────────────────────────────────────────────────────
 
-  async function resolveTabId() {
-    if (isTabMode && sourceTabId != null) {
-      return sourceTabId;
-    }
-    // Popup mode: get active tab
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab) return null;
-    activeTabId = tab.id;
-    return tab.id;
+  /**
+   * Find the active LinkedIn tab in the current window.
+   * Returns the tab object, or null if none found.
+   */
+  async function findLinkedInTab() {
+    return new Promise(resolve => {
+      chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+        if (chrome.runtime.lastError || !tabs || !tabs.length) { resolve(null); return; }
+        const tab = tabs[0];
+        if (tab.url && tab.url.includes(LINKEDIN_HOST)) {
+          resolve(tab);
+        } else {
+          resolve(null);
+        }
+      });
+    });
   }
 
-  function tabUrl(tabId) {
+  function getTab(tabId) {
     return new Promise(resolve => {
       chrome.tabs.get(tabId, tab => {
         if (chrome.runtime.lastError) resolve(null);
-        else resolve(tab.url || null);
+        else resolve(tab || null);
       });
     });
   }
@@ -333,78 +324,129 @@
 
   // ── Extract flow ───────────────────────────────────────────────────────────
 
-  async function extractJobs(isRetry) {
-    if (!isRetry) {
-      setStatus('Extracting jobs…');
-      clearJobList();
-      setJobCount(0, 0);
-      setNotice('');
-    }
-
-    let tabId;
-    try {
-      tabId = await resolveTabId();
-    } catch (err) {
-      showState('unreachable');
-      return;
-    }
-
-    if (!tabId) {
-      showState('unreachable');
-      return;
-    }
-
-    // Check tab URL is LinkedIn
-    const url = await tabUrl(tabId);
-    if (!url || !url.includes(LINKEDIN_HOST)) {
-      showState('unsupported');
-      return;
-    }
-
+  /**
+   * Extract jobs from the given tab, injecting scripts if needed.
+   * @param {number} tabId
+   * @param {boolean} isRetry
+   */
+  async function extractFromTab(tabId, isRetry) {
     let response;
     try {
       response = await sendExtractMessage(tabId);
     } catch (err) {
-      // Likely "Receiving end does not exist" — inject and retry once
       if (!isRetry && err.message && err.message.toLowerCase().includes('receiving end')) {
         try {
           await injectScripts(tabId);
-          extractJobs(true);
-          return;
+          return extractFromTab(tabId, true);
         } catch (injErr) {
           showState('unreachable', injErr.message);
           return;
         }
       }
-      // Second failure or other error
       showState('unreachable', err.message);
       return;
     }
 
-    if (!response) {
-      showState('unreachable');
-      return;
-    }
+    if (!response) { showState('unreachable'); return; }
 
     if (!response.ok) {
       const code = response.error && response.error.code;
-      if (code === LJS.NO_CARDS) {
-        showState('no-cards');
-      } else if (code === LJS.UNSUPPORTED_PAGE) {
-        showState('unsupported');
-      } else {
-        setStatus(`Error: ${response.error && response.error.message || 'Unknown error'}`);
-      }
+      if (code === LJS.NO_CARDS)        showState('no-cards');
+      else if (code === LJS.UNSUPPORTED_PAGE) showState('unsupported');
+      else setStatus(`Error: ${response.error && response.error.message || 'Unknown error'}`);
       return;
     }
 
     // Success
-    allJobs = response.jobs || [];
+    allJobs       = response.jobs || [];
     searchContext = response.searchContext || null;
-    extractStats = response.stats || null;
-
     clearStatus();
     renderJobs();
+  }
+
+  /**
+   * Initial extraction on panel open.
+   */
+  async function extractJobs() {
+    setStatus('Extracting jobs…');
+    clearJobList();
+    setJobCount(0, 0);
+    setNotice('');
+
+    const tab = await findLinkedInTab();
+    if (!tab) { showState('unsupported'); return; }
+
+    linkedInTabId = tab.id;
+    await extractFromTab(tab.id, false);
+  }
+
+  // ── Refresh: reload the LinkedIn tab, then re-extract ─────────────────────
+
+  /**
+   * Reload the active LinkedIn tab and re-extract jobs once it's loaded.
+   * Uses chrome.tabs.onUpdated to detect when the reload finishes.
+   */
+  async function refreshTab() {
+    if (isRefreshing) return;
+    isRefreshing = true;
+    setBtnRefreshBusy(true);
+
+    // Resolve tab to refresh
+    let tabId = linkedInTabId;
+    if (!tabId) {
+      const tab = await findLinkedInTab();
+      if (!tab) {
+        showState('unsupported');
+        isRefreshing = false;
+        setBtnRefreshBusy(false);
+        return;
+      }
+      tabId = tab.id;
+      linkedInTabId = tabId;
+    }
+
+    // Verify the tab still exists and is a LinkedIn tab
+    const currentTab = await getTab(tabId);
+    if (!currentTab || !currentTab.url || !currentTab.url.includes(LINKEDIN_HOST)) {
+      showState('unsupported');
+      isRefreshing = false;
+      setBtnRefreshBusy(false);
+      return;
+    }
+
+    // Show that we're reloading
+    setStatus('Reloading LinkedIn page…');
+    clearJobList();
+    setJobCount(0, 0);
+    setNotice('');
+
+    // Listen for the tab to finish loading
+    const onUpdated = function (updatedTabId, changeInfo) {
+      if (updatedTabId !== tabId) return;
+      if (changeInfo.status !== 'complete') return;
+
+      // Tab finished loading — unregister listener, wait a bit, then extract
+      chrome.tabs.onUpdated.removeListener(onUpdated);
+
+      setTimeout(async function () {
+        setStatus('Extracting jobs…');
+        await extractFromTab(tabId, false);
+        isRefreshing = false;
+        setBtnRefreshBusy(false);
+      }, POST_LOAD_DELAY_MS);
+    };
+
+    chrome.tabs.onUpdated.addListener(onUpdated);
+
+    // Reload the tab (bypass cache so LinkedIn fetches fresh job feed)
+    chrome.tabs.reload(tabId, { bypassCache: true }, function () {
+      if (chrome.runtime.lastError) {
+        chrome.tabs.onUpdated.removeListener(onUpdated);
+        setStatus(`Reload failed: ${chrome.runtime.lastError.message}`);
+        isRefreshing = false;
+        setBtnRefreshBusy(false);
+      }
+    });
   }
 
   function clearJobList() {
@@ -413,14 +455,11 @@
 
   function showState(state, detail) {
     clearJobList();
-    elJobCount.textContent = '';
-    elSearchCtx.textContent = '';
-    elNotice.textContent = '';
+    elJobCount.textContent   = '';
+    elSearchCtx.textContent  = '';
+    elNotice.textContent     = '';
 
     switch (state) {
-      case 'loading':
-        setStatus('Extracting jobs…');
-        break;
       case 'no-cards':
         setStatus('No job cards found on this page. Open a LinkedIn job search results page and try again.');
         break;
@@ -436,26 +475,10 @@
   // ── Event listeners ────────────────────────────────────────────────────────
 
   elBtnRefresh.addEventListener('click', function () {
-    if (allJobs.length > 0) {
-      // Keep old results visible, just set a notice
-      setNotice('Refreshing…');
-    }
-    extractJobs(false).catch(err => {
-      if (allJobs.length > 0) {
-        setNotice(`Refresh failed. ${err.message}`);
-      } else {
-        setStatus(`Refresh failed. ${err.message}`);
-      }
-    });
-  });
-
-  elBtnOpenTab.addEventListener('click', function () {
-    // Get the active tab id to pass as sourceTabId
-    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-      const tid = tabs && tabs[0] && tabs[0].id;
-      const popupUrl = chrome.runtime.getURL('src/popup/popup.html') +
-        `?view=tab${tid ? '&sourceTabId=' + tid : ''}`;
-      chrome.tabs.create({ url: popupUrl });
+    refreshTab().catch(err => {
+      setStatus(`Refresh failed: ${err.message}`);
+      isRefreshing = false;
+      setBtnRefreshBusy(false);
     });
   });
 
@@ -463,14 +486,13 @@
   elFilterQuery.addEventListener('input', renderJobs);
   elKnownTime.addEventListener('change', renderJobs);
   elHideViewed.addEventListener('change', renderJobs);
+  elHideApplied.addEventListener('change', renderJobs);
   elEasyApply.addEventListener('change', renderJobs);
 
   // ── Init ───────────────────────────────────────────────────────────────────
 
   document.addEventListener('DOMContentLoaded', function () {
-    detectMode();
-    extractJobs(false);
+    extractJobs();
   });
 
 })();
-

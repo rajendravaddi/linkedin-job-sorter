@@ -43,8 +43,9 @@ if (globalThis.__LJS_LOADED__) {
       const { jobs, duplicatesRemoved } = LJS.deduplicateJobs(rawJobs);
       const searchContext = LJS.parseSearchContext(pageUrl);
 
-      const unknownAge = jobs.filter(j => j.ageMinutes === null).length;
-      const viewedCount = jobs.filter(j => j.viewed === true).length;
+      const unknownAge    = jobs.filter(j => j.ageMinutes === null).length;
+      const viewedCount   = jobs.filter(j => j.viewed === true).length;
+      const appliedCount  = jobs.filter(j => j.applied === true).length;
 
       sendResponse({
         ok: true,
@@ -58,6 +59,7 @@ if (globalThis.__LJS_LOADED__) {
           malformedSkipped: stats.malformedSkipped,
           unknownAge,
           viewedCount,
+          appliedCount,
         },
         extractedAt: now.toISOString(),
       });
