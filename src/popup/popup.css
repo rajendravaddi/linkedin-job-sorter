@@ -183,6 +183,22 @@ button:focus-visible {
   border-color: var(--color-accent-hover);
 }
 
+#btn-fetch-more {
+  background: #057642;
+  color: #fff;
+  border-color: #057642;
+}
+
+#btn-fetch-more:hover {
+  background: #046237;
+  border-color: #046237;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* ── Controls ────────────────────────────────────────────────────────────────── */
 .controls {
   background: var(--color-bg-controls);
@@ -394,6 +410,69 @@ select:focus, input[type="text"]:focus {
   display: inline-block;
 }
 
+/* ── Crawl Progress ──────────────────────────────────────────────────────────── */
+.crawl-progress-container {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.crawl-progress-bar {
+  width: 100%;
+  height: 5px;
+  background: var(--color-border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.crawl-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--color-accent);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.crawl-progress-label {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+/* ── Fetch More Footer ───────────────────────────────────────────────────────── */
+.fetch-more-footer {
+  padding: 10px 12px;
+  background: var(--color-bg-header);
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.btn-fetch-more-large {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  background: #057642;
+  color: #fff;
+  border-color: #057642;
+  border-radius: var(--radius-btn);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-fetch-more-large:hover {
+  background: #046237;
+  border-color: #046237;
+}
+
+.btn-fetch-more-large:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* ── Scrollbar ───────────────────────────────────────────────────────────────── */
 .job-list::-webkit-scrollbar {
   width: 6px;
@@ -408,4 +487,5 @@ select:focus, input[type="text"]:focus {
 .job-list::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-muted);
 }
+
 

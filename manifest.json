@@ -3,7 +3,7 @@
   "name": "LinkedIn Job Sorter",
   "version": "0.2.0",
   "description": "Sorts the LinkedIn job results you are viewing by estimated posting age.",
-  "permissions": ["scripting", "sidePanel", "tabs"],
+  "permissions": ["scripting", "sidePanel", "tabs", "storage"],
   "host_permissions": ["https://www.linkedin.com/*"],
   "action": {
     "default_title": "LinkedIn Job Sorter"
@@ -23,7 +23,8 @@
         "src/lib/search-context.js",
         "src/lib/deduplicate-jobs.js",
         "src/lib/card-extractor.js",
-        "src/content/content-script.js"
+        "src/content/content-script.js",
+        "src/content/crawler.js"
       ],
       "run_at": "document_idle"
     }

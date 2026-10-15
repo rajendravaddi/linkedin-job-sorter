@@ -92,7 +92,7 @@ Tests use Node's **built-in test runner** (`node:test`, available in Node 18+) a
 
 Run these manual checks after loading the extension in Chrome:
 
-1. **Jobs search page** — Navigate to `linkedin.com/jobs/search/?keywords=engineer`. Click the extension icon. Jobs should appear sorted newest-first.
+1. **Jobs search page** — Navigate to `linkedin.com/jobs/search-results/?keywords=engineer`. Click the extension icon. Jobs should appear sorted newest-first.
 2. **Newest sort** — Verify that jobs with smaller ageMinutes appear before those with larger ageMinutes.
 3. **Oldest sort** — Switch to "Estimated oldest first". Verify order reverses for known ages.
 4. **Original sort** — Switch to "Original LinkedIn order". Verify DOM order is restored.

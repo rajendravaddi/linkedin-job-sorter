@@ -2,10 +2,17 @@
  * src/popup/popup.js
  *
  * Side-panel logic for the LinkedIn Job Sorter extension.
- * The panel persists across focus changes, unlike a popup.
+ * The panel persists across focus changes and supports multi-page crawling
+ * with local storage persistence across accidental refreshes.
  *
- * Refresh behaviour: reloads the LinkedIn tab completely so newly posted
- * jobs scroll into the feed, then re-extracts once the page settles.
+ * Refresh behaviour:
+ * - Clears storage and resets to page 1 (start=0).
+ * - Enforces the "Past 24 hours" filter (f_TPR=r86400) on a search results page.
+ * - Crawls up to 10 pages, showing jobs live as each page completes.
+ * - Displays a "Fetch More" button if more pages exist.
+ *
+ * Accidental panel reload / reopen:
+ * - Restores crawled jobs and state from chrome.storage.local without re-crawling.
  *
  * NEVER uses innerHTML — all DOM construction uses createElement + textContent.
  */
@@ -19,53 +26,76 @@
 
   const VALID_URL_RE = /^https:\/\/www\.linkedin\.com\/jobs\/view\/\d+\/?$/;
   const LINKEDIN_HOST = 'www.linkedin.com';
-
-  /**
-   * How long (ms) to wait after a tab's status becomes 'complete' before
-   * attempting extraction, to give JS frameworks time to render job cards.
-   */
   const POST_LOAD_DELAY_MS = 1500;
+  const PAGE_LIMIT = 10;
+
+  const STORAGE_KEY_JOBS = 'ljs_jobs';
+  const STORAGE_KEY_STATE = 'ljs_crawl_state';
+
+  const CONTENT_SCRIPTS = [
+    'src/shared/messages.js',
+    'src/lib/posted-time-parser.js',
+    'src/lib/search-context.js',
+    'src/lib/deduplicate-jobs.js',
+    'src/lib/card-extractor.js',
+    'src/content/content-script.js',
+    'src/content/crawler.js',
+  ];
 
   // ── State ──────────────────────────────────────────────────────────────────
 
-  let allJobs = [];          // Full extracted job list (deduped)
+  let allJobs = [];          // Full extracted job list (deduped across pages)
   let searchContext = null;  // { keywords, location, dateFilterLabel }
   let linkedInTabId = null;  // ID of the LinkedIn tab we're watching
-  let isRefreshing = false;  // Guard against concurrent refresh calls
+  let isCrawling = false;    // Guard against concurrent crawl actions
+  let crawlState = {
+    pagesCompleted: 0,
+    moreAvailable: false,
+  };
 
   // ── DOM References ─────────────────────────────────────────────────────────
 
   const $ = id => document.getElementById(id);
 
-  const elJobCount     = $('job-count');
-  const elSearchCtx    = $('search-context');
-  const elNotice       = $('notice');
-  const elStatus       = $('status');
-  const elJobList      = $('job-list');
-  const elSortSelect   = $('sort-select');
-  const elFilterQuery  = $('filter-query');
-  const elKnownTime    = $('filter-known-time');
-  const elHideViewed   = $('filter-hide-viewed');
-  const elHideApplied  = $('filter-hide-applied');
-  const elEasyApply    = $('filter-easy-apply');
-  const elEasyLabel    = $('easy-apply-label');
-  const elBtnRefresh   = $('btn-refresh');
+  const elJobCount             = $('job-count');
+  const elSearchCtx            = $('search-context');
+  const elNotice               = $('notice');
+  const elStatus               = $('status');
+  const elJobList              = $('job-list');
+  const elSortSelect           = $('sort-select');
+  const elFilterQuery          = $('filter-query');
+  const elKnownTime            = $('filter-known-time');
+  const elHideViewed           = $('filter-hide-viewed');
+  const elHideApplied          = $('filter-hide-applied');
+  const elEasyApply            = $('filter-easy-apply');
+  const elEasyLabel            = $('easy-apply-label');
+  const elBtnRefresh           = $('btn-refresh');
+  const elBtnFetchMore         = $('btn-fetch-more');
+  const elBtnFetchMoreFooter   = $('btn-fetch-more-footer');
+  const elFetchMoreFooter      = $('fetch-more-footer');
+  const elCrawlProgress        = $('crawl-progress-container');
+  const elCrawlProgressFill    = $('crawl-progress-fill');
+  const elCrawlProgressLabel   = $('crawl-progress-label');
 
   // ── UI helpers ─────────────────────────────────────────────────────────────
 
   function setStatus(text) {
+    if (!elStatus) return;
     elStatus.textContent = text;
   }
 
   function clearStatus() {
+    if (!elStatus) return;
     elStatus.textContent = '';
   }
 
   function setNotice(text) {
+    if (!elNotice) return;
     elNotice.textContent = text;
   }
 
   function setJobCount(shown, total) {
+    if (!elJobCount) return;
     if (total === 0) { elJobCount.textContent = ''; return; }
     elJobCount.textContent = shown === total
       ? `${total} job${total === 1 ? '' : 's'}`
@@ -73,6 +103,7 @@
   }
 
   function renderSearchContext(ctx) {
+    if (!elSearchCtx) return;
     if (!ctx) { elSearchCtx.textContent = ''; return; }
     const parts = [];
     if (ctx.keywords)        parts.push(`"${ctx.keywords}"`);
@@ -82,8 +113,102 @@
   }
 
   function setBtnRefreshBusy(busy) {
+    if (!elBtnRefresh) return;
     elBtnRefresh.disabled = busy;
-    elBtnRefresh.textContent = busy ? 'Refreshing…' : 'Refresh';
+    elBtnRefresh.textContent = busy ? 'Crawling…' : 'Refresh';
+  }
+
+  function setBtnFetchMoreBusy(busy) {
+    if (elBtnFetchMore) {
+      elBtnFetchMore.disabled = busy;
+      elBtnFetchMore.textContent = busy ? 'Fetching…' : 'Fetch More';
+    }
+    if (elBtnFetchMoreFooter) {
+      elBtnFetchMoreFooter.disabled = busy;
+      elBtnFetchMoreFooter.textContent = busy ? 'Fetching Next 10 Pages…' : 'Fetch Next 10 Pages';
+    }
+  }
+
+  function updateFetchMoreVisibility(visible) {
+    const show = visible && !isCrawling;
+    if (elBtnFetchMore) elBtnFetchMore.style.display = show ? '' : 'none';
+    if (elFetchMoreFooter) elFetchMoreFooter.style.display = show ? '' : 'none';
+  }
+
+  function updateProgressUI(pageNumber, hasNextPage, customText) {
+    if (!elCrawlProgress) return;
+    elCrawlProgress.style.display = '';
+
+    const displayPage = pageNumber > 0 ? pageNumber : 1;
+    // Calculate progress percentage based on 10-page chunk
+    const pageInBatch = ((displayPage - 1) % PAGE_LIMIT) + 1;
+    const pct = Math.min(100, Math.round((pageInBatch / PAGE_LIMIT) * 100));
+
+    if (elCrawlProgressFill) elCrawlProgressFill.style.width = `${pct}%`;
+    if (elCrawlProgressLabel) {
+      elCrawlProgressLabel.textContent = customText ||
+        `Page ${displayPage} (crawling batch: page ${pageInBatch} of ${PAGE_LIMIT}) · ${allJobs.length} jobs found`;
+    }
+  }
+
+  function hideProgressUI() {
+    if (!elCrawlProgress) return;
+    elCrawlProgress.style.display = 'none';
+    if (elCrawlProgressFill) elCrawlProgressFill.style.width = '0%';
+  }
+
+  function clearJobList() {
+    if (!elJobList) return;
+    while (elJobList.firstChild) elJobList.removeChild(elJobList.firstChild);
+  }
+
+  function showInitialState() {
+    clearJobList();
+    setJobCount(0, 0);
+    renderSearchContext(null);
+    setNotice('');
+    updateFetchMoreVisibility(false);
+    hideProgressUI();
+    setStatus('Click "Refresh" on a LinkedIn job search page with the "Past 24 hours" filter applied to start crawling jobs.');
+  }
+
+  function showState(state, detail) {
+    clearJobList();
+    setJobCount(0, 0);
+    renderSearchContext(null);
+    setNotice('');
+    updateFetchMoreVisibility(false);
+    hideProgressUI();
+
+    switch (state) {
+      case 'no-cards':
+        setStatus('No job cards found on this page. Open a LinkedIn job search results page and try again.');
+        break;
+      case 'unsupported':
+        setStatus('Open a LinkedIn jobs search results page (linkedin.com/jobs/search-results) with the "Past 24 hours" filter to use this extension.');
+        break;
+      case 'unreachable':
+        setStatus(`Unable to read the current tab. Reload the LinkedIn page and try again.${detail ? ' (' + detail + ')' : ''}`);
+        break;
+      default:
+        setStatus(detail || 'Unknown state.');
+    }
+  }
+
+  // ── Storage Persistence ────────────────────────────────────────────────────
+
+  async function persistJobsAndState() {
+    return new Promise(resolve => {
+      chrome.storage.local.set({
+        [STORAGE_KEY_JOBS]: allJobs,
+        [STORAGE_KEY_STATE]: {
+          pagesCompleted: crawlState.pagesCompleted,
+          moreAvailable: crawlState.moreAvailable,
+          lastCrawledAt: new Date().toISOString(),
+          searchContext,
+        },
+      }, resolve);
+    });
   }
 
   // ── Job card DOM builder (no innerHTML) ────────────────────────────────────
@@ -204,12 +329,12 @@
   // ── Render ─────────────────────────────────────────────────────────────────
 
   function renderJobs() {
-    const mode         = elSortSelect.value;
-    const query        = elFilterQuery.value;
-    const knownTimeOnly = elKnownTime.checked;
-    const hideViewed   = elHideViewed.checked;
-    const hideApplied  = elHideApplied.checked;
-    const easyApplyOnly = elEasyApply.checked;
+    const mode          = elSortSelect ? elSortSelect.value : 'newest';
+    const query         = elFilterQuery ? elFilterQuery.value : '';
+    const knownTimeOnly = elKnownTime ? elKnownTime.checked : false;
+    const hideViewed    = elHideViewed ? elHideViewed.checked : false;
+    const hideApplied   = elHideApplied ? elHideApplied.checked : false;
+    const easyApplyOnly = elEasyApply ? elEasyApply.checked : false;
 
     const sorted   = LJS.sortJobs(allJobs, mode);
     const filtered = LJS.filterJobs(sorted, { query, knownTimeOnly, easyApplyOnly, hideViewed, hideApplied });
@@ -222,10 +347,10 @@
 
     // Show Easy Apply checkbox only when relevant
     const hasEasyApply = allJobs.some(j => j.easyApply === true);
-    elEasyLabel.style.display = hasEasyApply ? '' : 'none';
+    if (elEasyLabel) elEasyLabel.style.display = hasEasyApply ? '' : 'none';
 
     // Clear list
-    while (elJobList.firstChild) elJobList.removeChild(elJobList.firstChild);
+    clearJobList();
 
     if (total > 0 && shown === 0) {
       setStatus('No jobs match the current filters.');
@@ -233,18 +358,16 @@
       clearBtn.className = 'btn-clear-filters';
       clearBtn.textContent = 'Clear filters';
       clearBtn.addEventListener('click', function () {
-        elFilterQuery.value   = '';
-        elKnownTime.checked   = false;
-        elHideViewed.checked  = false;
-        elHideApplied.checked = false;
-        elEasyApply.checked   = false;
+        if (elFilterQuery) elFilterQuery.value = '';
+        if (elKnownTime) elKnownTime.checked = false;
+        if (elHideViewed) elHideViewed.checked = false;
+        if (elHideApplied) elHideApplied.checked = false;
+        if (elEasyApply) elEasyApply.checked = false;
         renderJobs();
       });
-      elStatus.appendChild(clearBtn);
+      if (elStatus) elStatus.appendChild(clearBtn);
       return;
     }
-
-    clearStatus();
 
     // Partial times notice
     const unknownCount = filtered.filter(j => j.ageMinutes === null).length;
@@ -261,15 +384,11 @@
 
     const fragment = document.createDocumentFragment();
     for (const job of filtered) fragment.appendChild(buildJobCard(job));
-    elJobList.appendChild(fragment);
+    if (elJobList) elJobList.appendChild(fragment);
   }
 
-  // ── Tab resolution ─────────────────────────────────────────────────────────
+  // ── Tab Resolution & Navigation ────────────────────────────────────────────
 
-  /**
-   * Find the active LinkedIn tab in the current window.
-   * Returns the tab object, or null if none found.
-   */
   async function findLinkedInTab() {
     return new Promise(resolve => {
       chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
@@ -284,215 +403,295 @@
     });
   }
 
-  function getTab(tabId) {
-    return new Promise(resolve => {
-      chrome.tabs.get(tabId, tab => {
-        if (chrome.runtime.lastError) resolve(null);
-        else resolve(tab || null);
-      });
-    });
-  }
-
-  // ── Script injection + retry ───────────────────────────────────────────────
-
-  const CONTENT_SCRIPTS = [
-    'src/shared/messages.js',
-    'src/lib/posted-time-parser.js',
-    'src/lib/search-context.js',
-    'src/lib/deduplicate-jobs.js',
-    'src/lib/card-extractor.js',
-    'src/content/content-script.js',
-  ];
-
-  async function injectScripts(tabId) {
+  async function ensureScriptsInjected(tabId) {
     for (const file of CONTENT_SCRIPTS) {
-      await chrome.scripting.executeScript({ target: { tabId }, files: [file] });
+      try {
+        await chrome.scripting.executeScript({ target: { tabId }, files: [file] });
+      } catch (_) {}
     }
   }
 
-  async function sendExtractMessage(tabId) {
+  async function navigateAndSettle(tabId, targetUrl) {
     return new Promise((resolve, reject) => {
-      chrome.tabs.sendMessage(tabId, { type: LJS.MSG_EXTRACT }, function (response) {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-        } else {
-          resolve(response);
+      let settled = false;
+
+      const cleanup = () => {
+        chrome.tabs.onUpdated.removeListener(onUpdated);
+      };
+
+      const timer = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          cleanup();
+          resolve();
         }
-      });
-    });
-  }
+      }, 15000);
 
-  // ── Extract flow ───────────────────────────────────────────────────────────
+      const onUpdated = function (updatedTabId, changeInfo) {
+        if (updatedTabId !== tabId) return;
+        if (changeInfo.status !== 'complete') return;
 
-  /**
-   * Extract jobs from the given tab, injecting scripts if needed.
-   * @param {number} tabId
-   * @param {boolean} isRetry
-   */
-  async function extractFromTab(tabId, isRetry) {
-    let response;
-    try {
-      response = await sendExtractMessage(tabId);
-    } catch (err) {
-      if (!isRetry && err.message && err.message.toLowerCase().includes('receiving end')) {
-        try {
-          await injectScripts(tabId);
-          return extractFromTab(tabId, true);
-        } catch (injErr) {
-          showState('unreachable', injErr.message);
+        if (!settled) {
+          settled = true;
+          cleanup();
+          clearTimeout(timer);
+          setTimeout(resolve, POST_LOAD_DELAY_MS);
+        }
+      };
+
+      chrome.tabs.onUpdated.addListener(onUpdated);
+
+      chrome.tabs.get(tabId, currentTab => {
+        if (chrome.runtime.lastError || !currentTab) {
+          cleanup();
+          clearTimeout(timer);
+          reject(new Error('LinkedIn tab not found'));
           return;
         }
-      }
-      showState('unreachable', err.message);
-      return;
-    }
 
-    if (!response) { showState('unreachable'); return; }
-
-    if (!response.ok) {
-      const code = response.error && response.error.code;
-      if (code === LJS.NO_CARDS)        showState('no-cards');
-      else if (code === LJS.UNSUPPORTED_PAGE) showState('unsupported');
-      else setStatus(`Error: ${response.error && response.error.message || 'Unknown error'}`);
-      return;
-    }
-
-    // Success
-    allJobs       = response.jobs || [];
-    searchContext = response.searchContext || null;
-    clearStatus();
-    renderJobs();
+        if (currentTab.url === targetUrl) {
+          chrome.tabs.reload(tabId, { bypassCache: true }, () => {
+            if (chrome.runtime.lastError) {
+              cleanup();
+              clearTimeout(timer);
+              reject(new Error(chrome.runtime.lastError.message));
+            }
+          });
+        } else {
+          chrome.tabs.update(tabId, { url: targetUrl }, () => {
+            if (chrome.runtime.lastError) {
+              cleanup();
+              clearTimeout(timer);
+              reject(new Error(chrome.runtime.lastError.message));
+            }
+          });
+        }
+      });
+    });
   }
 
-  /**
-   * Initial extraction on panel open.
-   */
-  async function extractJobs() {
-    setStatus('Extracting jobs…');
+  // ── Runtime Message Handler (Crawler → Side Panel) ─────────────────────────
+
+  function handleRuntimeMessage(message, sender) {
+    if (linkedInTabId && sender && sender.tab && sender.tab.id !== linkedInTabId) {
+      return;
+    }
+
+    if (message.type === LJS.MSG_CRAWL_PROGRESS) {
+      const pageJobs = message.jobs || [];
+      allJobs = allJobs.concat(pageJobs);
+      const deduped = LJS.deduplicateJobs(allJobs);
+      allJobs = deduped.jobs;
+
+      if (message.searchContext) {
+        searchContext = message.searchContext;
+      }
+
+      crawlState.pagesCompleted = message.pageNumber;
+      crawlState.moreAvailable = message.hasNextPage;
+
+      persistJobsAndState();
+      renderJobs();
+
+      setStatus(`Fetching page ${message.pageNumber}… (${allJobs.length} jobs collected)`);
+      updateProgressUI(message.pageNumber, message.hasNextPage);
+    }
+
+    if (message.type === LJS.MSG_CRAWL_COMPLETE) {
+      isCrawling = false;
+      setBtnRefreshBusy(false);
+      setBtnFetchMoreBusy(false);
+      hideProgressUI();
+
+      crawlState.moreAvailable = message.moreAvailable;
+      updateFetchMoreVisibility(message.moreAvailable);
+
+      if (message.moreAvailable) {
+        setStatus(`Reached page ${crawlState.pagesCompleted} (${allJobs.length} jobs). Click "Fetch More" for next 10 pages.`);
+      } else {
+        setStatus(`Crawl complete! Fetched ${allJobs.length} jobs across ${crawlState.pagesCompleted} page${crawlState.pagesCompleted === 1 ? '' : 's'}.`);
+      }
+
+      persistJobsAndState();
+    }
+
+    if (message.type === LJS.MSG_CRAWL_ERROR) {
+      isCrawling = false;
+      setBtnRefreshBusy(false);
+      setBtnFetchMoreBusy(false);
+      hideProgressUI();
+      setStatus(`Crawl stopped: ${message.error && message.error.message ? message.error.message : 'Error encountered during crawl'}`);
+    }
+  }
+
+  // ── Refresh & Crawl Flow ───────────────────────────────────────────────────
+
+  async function handleRefresh() {
+    // If a crawl is currently in progress, stop it first
+    if (isCrawling && linkedInTabId) {
+      chrome.tabs.sendMessage(linkedInTabId, { type: LJS.MSG_CRAWL_STOP }, () => {});
+    }
+
+    // 1. Clear storage & in-memory jobs
+    await chrome.storage.local.remove([STORAGE_KEY_JOBS, STORAGE_KEY_STATE]);
+    allJobs = [];
+    searchContext = null;
+    crawlState = { pagesCompleted: 0, moreAvailable: false };
     clearJobList();
     setJobCount(0, 0);
+    renderSearchContext(null);
     setNotice('');
+    updateFetchMoreVisibility(false);
+
+    // 2. Resolve active LinkedIn tab
+    const tab = await findLinkedInTab();
+    if (!tab) {
+      showState('unsupported');
+      return;
+    }
+    linkedInTabId = tab.id;
+
+    // 3. Enforce valid search URL and "Past 24 hours" filter
+    const validation = LJS.validateSearchUrl(tab.url);
+    if (!validation.valid) {
+      setStatus(validation.reason);
+      setNotice(validation.reason);
+      return;
+    }
+
+    // 4. Reset to page 1 (start=0)
+    const page1Url = LJS.getPage1Url(tab.url);
+    isCrawling = true;
+    setBtnRefreshBusy(true);
+    setStatus('Resetting LinkedIn page to page 1…');
+    updateProgressUI(0, true, 'Resetting to page 1…');
+
+    try {
+      await navigateAndSettle(tab.id, page1Url);
+      await ensureScriptsInjected(tab.id);
+
+      // 5. Kick off crawler from page 1
+      setStatus('Starting crawl from page 1…');
+      chrome.tabs.sendMessage(tab.id, {
+        type: LJS.MSG_CRAWL_START,
+        maxPages: PAGE_LIMIT,
+      }, function (response) {
+        if (chrome.runtime.lastError) {
+          setStatus(`Could not start crawl: ${chrome.runtime.lastError.message}`);
+          isCrawling = false;
+          setBtnRefreshBusy(false);
+          hideProgressUI();
+        }
+      });
+    } catch (err) {
+      setStatus(`Refresh failed: ${err.message}`);
+      isCrawling = false;
+      setBtnRefreshBusy(false);
+      hideProgressUI();
+    }
+  }
+
+  // ── Fetch More Flow ────────────────────────────────────────────────────────
+
+  async function handleFetchMore() {
+    if (isCrawling) return;
 
     const tab = await findLinkedInTab();
-    if (!tab) { showState('unsupported'); return; }
-
-    linkedInTabId = tab.id;
-    await extractFromTab(tab.id, false);
-  }
-
-  // ── Refresh: reload the LinkedIn tab, then re-extract ─────────────────────
-
-  /**
-   * Reload the active LinkedIn tab and re-extract jobs once it's loaded.
-   * Uses chrome.tabs.onUpdated to detect when the reload finishes.
-   */
-  async function refreshTab() {
-    if (isRefreshing) return;
-    isRefreshing = true;
-    setBtnRefreshBusy(true);
-
-    // Resolve tab to refresh
-    let tabId = linkedInTabId;
-    if (!tabId) {
-      const tab = await findLinkedInTab();
-      if (!tab) {
-        showState('unsupported');
-        isRefreshing = false;
-        setBtnRefreshBusy(false);
-        return;
-      }
-      tabId = tab.id;
-      linkedInTabId = tabId;
+    if (!tab) {
+      setStatus('LinkedIn tab not found. Please open LinkedIn in the active tab.');
+      return;
     }
+    linkedInTabId = tab.id;
 
-    // Verify the tab still exists and is a LinkedIn tab
-    const currentTab = await getTab(tabId);
-    if (!currentTab || !currentTab.url || !currentTab.url.includes(LINKEDIN_HOST)) {
-      showState('unsupported');
-      isRefreshing = false;
-      setBtnRefreshBusy(false);
+    const validation = LJS.validateSearchUrl(tab.url);
+    if (!validation.valid) {
+      setStatus(validation.reason);
       return;
     }
 
-    // Show that we're reloading
-    setStatus('Reloading LinkedIn page…');
-    clearJobList();
-    setJobCount(0, 0);
-    setNotice('');
+    isCrawling = true;
+    setBtnRefreshBusy(true);
+    setBtnFetchMoreBusy(true);
 
-    // Listen for the tab to finish loading
-    const onUpdated = function (updatedTabId, changeInfo) {
-      if (updatedTabId !== tabId) return;
-      if (changeInfo.status !== 'complete') return;
+    const nextPageNumber = (crawlState.pagesCompleted || 0) + 1;
+    setStatus(`Continuing crawl from page ${nextPageNumber}…`);
+    updateProgressUI(crawlState.pagesCompleted, true, `Advancing to page ${nextPageNumber}…`);
 
-      // Tab finished loading — unregister listener, wait a bit, then extract
-      chrome.tabs.onUpdated.removeListener(onUpdated);
+    try {
+      await ensureScriptsInjected(tab.id);
 
-      setTimeout(async function () {
-        setStatus('Extracting jobs…');
-        await extractFromTab(tabId, false);
-        isRefreshing = false;
-        setBtnRefreshBusy(false);
-      }, POST_LOAD_DELAY_MS);
-    };
-
-    chrome.tabs.onUpdated.addListener(onUpdated);
-
-    // Reload the tab (bypass cache so LinkedIn fetches fresh job feed)
-    chrome.tabs.reload(tabId, { bypassCache: true }, function () {
-      if (chrome.runtime.lastError) {
-        chrome.tabs.onUpdated.removeListener(onUpdated);
-        setStatus(`Reload failed: ${chrome.runtime.lastError.message}`);
-        isRefreshing = false;
-        setBtnRefreshBusy(false);
-      }
-    });
-  }
-
-  function clearJobList() {
-    while (elJobList.firstChild) elJobList.removeChild(elJobList.firstChild);
-  }
-
-  function showState(state, detail) {
-    clearJobList();
-    elJobCount.textContent   = '';
-    elSearchCtx.textContent  = '';
-    elNotice.textContent     = '';
-
-    switch (state) {
-      case 'no-cards':
-        setStatus('No job cards found on this page. Open a LinkedIn job search results page and try again.');
-        break;
-      case 'unsupported':
-        setStatus('Open a LinkedIn jobs search results page (linkedin.com/jobs) to use this extension.');
-        break;
-      case 'unreachable':
-        setStatus(`Unable to read the current tab. Reload the LinkedIn page and try again.${detail ? ' (' + detail + ')' : ''}`);
-        break;
+      chrome.tabs.sendMessage(tab.id, {
+        type: LJS.MSG_CRAWL_CONTINUE,
+        maxPages: PAGE_LIMIT,
+        startPageNumber: nextPageNumber,
+      }, function (response) {
+        if (chrome.runtime.lastError) {
+          setStatus(`Could not continue crawl: ${chrome.runtime.lastError.message}`);
+          isCrawling = false;
+          setBtnRefreshBusy(false);
+          setBtnFetchMoreBusy(false);
+          hideProgressUI();
+        }
+      });
+    } catch (err) {
+      setStatus(`Fetch more failed: ${err.message}`);
+      isCrawling = false;
+      setBtnRefreshBusy(false);
+      setBtnFetchMoreBusy(false);
+      hideProgressUI();
     }
   }
 
-  // ── Event listeners ────────────────────────────────────────────────────────
+  // ── Event Listeners ────────────────────────────────────────────────────────
 
-  elBtnRefresh.addEventListener('click', function () {
-    refreshTab().catch(err => {
-      setStatus(`Refresh failed: ${err.message}`);
-      isRefreshing = false;
-      setBtnRefreshBusy(false);
-    });
-  });
+  if (elBtnRefresh) {
+    elBtnRefresh.addEventListener('click', handleRefresh);
+  }
 
-  elSortSelect.addEventListener('change', renderJobs);
-  elFilterQuery.addEventListener('input', renderJobs);
-  elKnownTime.addEventListener('change', renderJobs);
-  elHideViewed.addEventListener('change', renderJobs);
-  elHideApplied.addEventListener('change', renderJobs);
-  elEasyApply.addEventListener('change', renderJobs);
+  if (elBtnFetchMore) {
+    elBtnFetchMore.addEventListener('click', handleFetchMore);
+  }
 
-  // ── Init ───────────────────────────────────────────────────────────────────
+  if (elBtnFetchMoreFooter) {
+    elBtnFetchMoreFooter.addEventListener('click', handleFetchMore);
+  }
+
+  if (elSortSelect) elSortSelect.addEventListener('change', renderJobs);
+  if (elFilterQuery) elFilterQuery.addEventListener('input', renderJobs);
+  if (elKnownTime) elKnownTime.addEventListener('change', renderJobs);
+  if (elHideViewed) elHideViewed.addEventListener('change', renderJobs);
+  if (elHideApplied) elHideApplied.addEventListener('change', renderJobs);
+  if (elEasyApply) elEasyApply.addEventListener('change', renderJobs);
+
+  // ── Init & Storage Restoration ─────────────────────────────────────────────
 
   document.addEventListener('DOMContentLoaded', function () {
-    extractJobs();
+    // Listen for crawl progress messages from content script
+    chrome.runtime.onMessage.addListener(handleRuntimeMessage);
+
+    // Restore from storage on initial open or accidental refresh
+    chrome.storage.local.get([STORAGE_KEY_JOBS, STORAGE_KEY_STATE], function (result) {
+      const savedJobs = result[STORAGE_KEY_JOBS];
+      const savedState = result[STORAGE_KEY_STATE];
+
+      if (Array.isArray(savedJobs) && savedJobs.length > 0) {
+        allJobs = savedJobs;
+        crawlState = savedState || { pagesCompleted: 1, moreAvailable: false };
+        searchContext = crawlState.searchContext || null;
+
+        renderJobs();
+        updateFetchMoreVisibility(crawlState.moreAvailable);
+
+        if (crawlState.moreAvailable) {
+          setStatus(`Crawled ${crawlState.pagesCompleted} pages (${allJobs.length} jobs). Click "Fetch More" to crawl next 10 pages.`);
+        } else {
+          setStatus(`Loaded ${allJobs.length} crawled jobs from storage.`);
+        }
+      } else {
+        // Storage empty — do NOT automatically start crawling
+        showInitialState();
+      }
+    });
   });
 
 })();

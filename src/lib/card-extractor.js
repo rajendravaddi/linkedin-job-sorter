@@ -412,6 +412,6 @@
     };
   }
 
-  return { extractJobsFromDocument };
+  return { extractJobsFromDocument, findCards, extractJobId };
 });
 

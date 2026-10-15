@@ -12,12 +12,19 @@
       <div class="header-top">
         <h1 class="header-title">LinkedIn Job Sorter</h1>
         <div class="header-actions">
+          <button id="btn-fetch-more" class="btn-fetch-more" style="display:none" aria-label="Fetch next 10 pages">Fetch More</button>
           <button id="btn-refresh" aria-label="Refresh LinkedIn page and reload jobs">Refresh</button>
         </div>
       </div>
       <div id="job-count" class="job-count"></div>
       <div id="search-context" class="search-context"></div>
       <div id="notice" class="notice" aria-live="polite"></div>
+      <div id="crawl-progress-container" class="crawl-progress-container" style="display:none">
+        <div class="crawl-progress-bar">
+          <div id="crawl-progress-fill" class="crawl-progress-fill"></div>
+        </div>
+        <div id="crawl-progress-label" class="crawl-progress-label"></div>
+      </div>
     </header>
 
     <div class="controls">
@@ -46,6 +53,9 @@
 
     <div id="status" class="status" aria-live="polite"></div>
     <div id="job-list" class="job-list" role="list"></div>
+    <div id="fetch-more-footer" class="fetch-more-footer" style="display:none">
+      <button id="btn-fetch-more-footer" class="btn-fetch-more-large">Fetch Next 10 Pages</button>
+    </div>
   </div>
 
   <script src="../shared/messages.js"></script>

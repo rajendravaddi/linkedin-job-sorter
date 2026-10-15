@@ -1,0 +1,113 @@
+'use strict';
+
+/**
+ * tests/crawler-dom.test.js
+ *
+ * Unit tests for crawler DOM helpers (findNextButton, isClickable).
+ * Runs with: node --test tests/
+ */
+
+const { describe, it } = require('node:test');
+const assert = require('node:assert/strict');
+const { JSDOM } = require('jsdom');
+
+require('../src/shared/messages');
+require('../src/lib/posted-time-parser');
+require('../src/lib/search-context');
+require('../src/lib/deduplicate-jobs');
+require('../src/lib/card-extractor');
+require('../src/content/crawler');
+
+const { findNextButton, isClickable } = globalThis.LJS;
+
+describe('crawler findNextButton', () => {
+
+  it('detects user-provided Next button structure with data-testid="pagination-controls-next-button-visible"', () => {
+    const html = `
+      <div class="jobs-search-results-list">
+        <button class="hv4lac hv4lab hv4su hv4am1 hv4f6r hv4kzl hv4k0f hv4laf hv4lae hv4lad hv4aof hv4gxe hv4ijm hv4jka" type="button" data-testid="pagination-controls-next-button-visible">
+          <span class="hv4laz hv4lau hv4g9m hv4gxe hv4su hv4am1 hv4aof hv4hc6 hv4h86 hv4kzl hv4k0f hv4jom hv4jox hv4la4 hv4lbd hv4lbe hv4lay hv4g86 hv4la9 hv4law hv4ggy hv4lbl">
+            <svg xmlns="http://www.w3.org/2000/svg" id="chevron-right-small" fill="currentColor" aria-hidden="true" data-rtl="true" data-supported-dps="16x16" viewBox="0 0 16 16" data-token-id="126" width="16" height="16" class="hv4lkb hv4am3" style="width: 16px; min-width: 16px; height: 16px; min-height: 16px;">
+              <path d="m5 15 4.61-7L5 1h2.39L12 8l-4.61 7z"></path>
+            </svg>
+            <span class="hv4k0m hv4k5r hv4llh hv4kzi hv4f6r hv4k0k hv4lbu">Next</span>
+          </span>
+        </button>
+      </div>
+    `;
+    const dom = new JSDOM(html);
+    const btn = findNextButton(dom.window.document);
+    assert.ok(btn !== null, 'Next button should be found');
+    assert.equal(btn.getAttribute('data-testid'), 'pagination-controls-next-button-visible');
+  });
+
+  it('returns null when button is disabled', () => {
+    const html = `
+      <button type="button" disabled data-testid="pagination-controls-next-button-visible">
+        <span>Next</span>
+      </button>
+    `;
+    const dom = new JSDOM(html);
+    const btn = findNextButton(dom.window.document);
+    assert.equal(btn, null, 'Disabled button should return null');
+  });
+
+  it('returns null when button has aria-disabled="true"', () => {
+    const html = `
+      <button type="button" aria-disabled="true" data-testid="pagination-controls-next-button-visible">
+        <span>Next</span>
+      </button>
+    `;
+    const dom = new JSDOM(html);
+    const btn = findNextButton(dom.window.document);
+    assert.equal(btn, null, 'aria-disabled button should return null');
+  });
+
+  it('returns null on last page when no next button exists', () => {
+    const html = `
+      <div class="jobs-search-results-list">
+        <button type="button" data-testid="pagination-controls-previous-button-visible">
+          <span>Previous</span>
+        </button>
+        <ul><li>Page 1</li><li>Page 2</li></ul>
+      </div>
+    `;
+    const dom = new JSDOM(html);
+    const btn = findNextButton(dom.window.document);
+    assert.equal(btn, null, 'Should return null when Next button is not in DOM');
+  });
+
+  it('detects fallback button with aria-label="View next page"', () => {
+    const html = `
+      <div>
+        <button type="button" aria-label="View next page">
+          <svg><path d="..."></path></svg>
+        </button>
+      </div>
+    `;
+    const dom = new JSDOM(html);
+    const btn = findNextButton(dom.window.document);
+    assert.ok(btn !== null);
+    assert.equal(btn.getAttribute('aria-label'), 'View next page');
+  });
+
+  it('detects pagination container button with "Next" text', () => {
+    const html = `
+      <div class="jobs-search-results-list__pagination">
+        <button class="artdeco-button">Prev</button>
+        <button class="artdeco-button">Next</button>
+      </div>
+    `;
+    const dom = new JSDOM(html);
+    const btn = findNextButton(dom.window.document);
+    assert.ok(btn !== null);
+    assert.equal(btn.textContent.trim(), 'Next');
+  });
+
+  it('isClickable returns false for null or disabled elements', () => {
+    assert.equal(isClickable(null), false);
+    const dom = new JSDOM('<button disabled></button>');
+    assert.equal(isClickable(dom.window.document.querySelector('button')), false);
+  });
+});
+

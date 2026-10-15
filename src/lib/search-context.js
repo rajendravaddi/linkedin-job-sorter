@@ -50,6 +50,70 @@
     return { keywords, location, dateFilterLabel };
   }
 
-  return { parseSearchContext };
+  /**
+   * Validate whether a URL is a valid LinkedIn job search results page with
+   * the 'Past 24 hours' filter applied.
+   *
+   * @param {string|URL} urlInput - The URL string or URL object.
+   * @returns {{ valid: boolean, code?: string, reason?: string }}
+   */
+  function validateSearchUrl(urlInput) {
+    let url;
+    try {
+      url = typeof urlInput === 'string' ? new URL(urlInput) : urlInput;
+    } catch (_) {
+      return {
+        valid: false,
+        code: 'INVALID_URL',
+        reason: 'Invalid URL.',
+      };
+    }
+
+    if (!url || !url.hostname || !url.hostname.includes('linkedin.com')) {
+      return {
+        valid: false,
+        code: 'NOT_LINKEDIN',
+        reason: 'Please open LinkedIn in the active tab.',
+      };
+    }
+
+    const cleanPath = url.pathname.replace(/\/+$/, '');
+    if (cleanPath !== '/jobs/search-results') {
+      return {
+        valid: false,
+        code: 'NOT_SEARCH_PAGE',
+        reason: 'Please navigate to a LinkedIn job search results page (linkedin.com/jobs/search-results) to crawl jobs.',
+      };
+    }
+
+    const fTPR = url.searchParams.get('f_TPR');
+    if (fTPR !== 'r86400') {
+      return {
+        valid: false,
+        code: 'FILTER_REQUIRED',
+        reason: 'Please apply the "Past 24 hours" date posted filter on LinkedIn before crawling jobs.',
+      };
+    }
+
+    return { valid: true };
+  }
+
+  /**
+   * Return a new URL string with the `start` parameter set to 0 (page 1).
+   *
+   * @param {string} urlString
+   * @returns {string}
+   */
+  function getPage1Url(urlString) {
+    try {
+      const url = new URL(urlString);
+      url.searchParams.set('start', '0');
+      return url.toString();
+    } catch (_) {
+      return urlString;
+    }
+  }
+
+  return { parseSearchContext, validateSearchUrl, getPage1Url };
 });
 
