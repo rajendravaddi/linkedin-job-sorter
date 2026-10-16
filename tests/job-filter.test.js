@@ -78,15 +78,6 @@ describe('filterJobs', () => {
     assert.equal(result.length, 0);
   });
 
-  it('knownTimeOnly → keeps only jobs with ageMinutes !== null', () => {
-    const result = filterJobs(SAMPLE_JOBS, { knownTimeOnly: true });
-    for (const job of result) {
-      assert.notEqual(job.ageMinutes, null);
-    }
-    // Jobs 1, 3, 5 have known ages
-    assert.equal(result.length, 3);
-  });
-
   it('easyApplyOnly → keeps only jobs where easyApply === true', () => {
     const result = filterJobs(SAMPLE_JOBS, { easyApplyOnly: true });
     for (const job of result) {
@@ -104,37 +95,12 @@ describe('filterJobs', () => {
     assert.equal(result.length, 3);
   });
 
-  it('combined filters: query + knownTimeOnly', () => {
-    const result = filterJobs(SAMPLE_JOBS, { query: 'developer', knownTimeOnly: true });
-    // Frontend Developer (ageMinutes=60) and Full Stack Developer (ageMinutes=1440)
-    assert.equal(result.length, 2);
-    assert.ok(result.every(j => j.ageMinutes != null));
-    assert.ok(result.every(j => j.title.toLowerCase().includes('developer')));
-  });
-
   it('combined filters: easyApplyOnly + hideViewed', () => {
     const result = filterJobs(SAMPLE_JOBS, { easyApplyOnly: true, hideViewed: true });
     // Job 1 (easyApply=true, viewed=null) → included
     // Job 4 (easyApply=true, viewed=true) → excluded
     assert.equal(result.length, 1);
     assert.equal(result[0].id, '1');
-  });
-
-  it('combined filters: all three (query + knownTimeOnly + easyApplyOnly)', () => {
-    const result = filterJobs(SAMPLE_JOBS, {
-      query: 'frontend',
-      knownTimeOnly: true,
-      easyApplyOnly: true,
-    });
-    assert.equal(result.length, 1);
-    assert.equal(result[0].id, '1');
-  });
-
-  it('does not mutate input array', () => {
-    const jobs = [makeJob({ id: '1', ageMinutes: 60 })];
-    const before = JSON.stringify(jobs);
-    filterJobs(jobs, { knownTimeOnly: true });
-    assert.equal(JSON.stringify(jobs), before);
   });
 
   it('job with null company still matches title query', () => {

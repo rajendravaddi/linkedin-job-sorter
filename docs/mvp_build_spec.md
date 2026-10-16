@@ -354,7 +354,7 @@ Unknown ages always come last in `newest` and `oldest`, ordered by `originalInde
 
 ### 8.2 `filterJobs(jobs, options)`
 
-`options = { query, knownTimeOnly, easyApplyOnly, hideViewed }`. `query` matches case-insensitively against title and company. `easyApplyOnly` keeps only jobs where `easyApply === true`.
+`options = { query, easyApplyOnly, hideViewed }`. `query` matches case-insensitively against title and company. `easyApplyOnly` keeps only jobs where `easyApply === true`.
 
 ### 8.3 `deduplicateJobs(jobs)` returns `{ jobs, duplicatesRemoved }`
 

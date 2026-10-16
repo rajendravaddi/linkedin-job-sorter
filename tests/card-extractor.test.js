@@ -52,7 +52,6 @@ describe('card-a.html (HP Software Applications)', () => {
 
   it('id is 4478776696', () => assert.equal(job.id, '4478776696'));
   it('title is "Software Applications"', () => assert.equal(job.title, 'Software Applications'));
-  it('title does NOT contain "(Verified job)"', () => assert.ok(!job.title.includes('Verified')));
   it('company is HP', () => assert.equal(job.company, 'HP'));
   it('location is Bengaluru', () => assert.equal(job.location, 'Bengaluru'));
   it('workplaceType is Hybrid', () => assert.equal(job.workplaceType, 'Hybrid'));
@@ -61,7 +60,6 @@ describe('card-a.html (HP Software Applications)', () => {
   it('ageMinutes is 1140', () => assert.equal(job.ageMinutes, 1140));
   it('timeStatus is "parsed"', () => assert.equal(job.timeStatus, 'parsed'));
   it('url is correct jobs/view URL', () => assert.equal(job.url, 'https://www.linkedin.com/jobs/view/4478776696/'));
-  it('verified is true', () => assert.equal(job.verified, true));
   it('viewed is null', () => assert.equal(job.viewed, null));
   it('earlyApplicant is true', () => assert.equal(job.earlyApplicant, true));
   it('easyApply is null', () => assert.equal(job.easyApply, null));
@@ -95,7 +93,6 @@ describe('card-b.html (HRM Counsel Python Developer)', () => {
   it('timeStatus is "missing"', () => assert.equal(job.timeStatus, 'missing'));
   it('url is correct jobs/view URL', () => assert.equal(job.url, 'https://www.linkedin.com/jobs/view/4479033986/'));
   it('urlSource is built-from-id', () => assert.equal(job.urlSource, 'built-from-id'));
-  it('verified is null', () => assert.equal(job.verified, null));
   it('viewed is true', () => assert.equal(job.viewed, true));
   it('earlyApplicant is true', () => assert.equal(job.earlyApplicant, true));
   it('easyApply is true', () => assert.equal(job.easyApply, true));
@@ -151,12 +148,6 @@ describe('multi-cards.html', () => {
       assert.ok(!job.title.includes('(Hybrid)'), `Title "${job.title}" should not contain (Hybrid)`);
       assert.ok(!job.title.includes('(Remote)'), `Title "${job.title}" should not contain (Remote)`);
       assert.ok(!job.title.includes('(On-site)'), `Title "${job.title}" should not contain (On-site)`);
-    }
-  });
-
-  it('no job title contains "Verified job"', () => {
-    for (const job of jobs) {
-      assert.ok(!job.title.includes('Verified job'), `Title "${job.title}" should not contain "Verified job"`);
     }
   });
 

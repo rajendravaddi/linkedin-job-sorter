@@ -20,7 +20,7 @@
    * @type {string[]}
    */
   const BOOLEAN_FIELDS = [
-    'easyApply', 'promoted', 'viewed', 'applied', 'verified', 'earlyApplicant', 'reposted',
+    'easyApply', 'promoted', 'viewed', 'applied', 'earlyApplicant', 'reposted',
   ];
 
   /**

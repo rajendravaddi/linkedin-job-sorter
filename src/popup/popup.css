@@ -23,8 +23,6 @@
   --color-badge-easy-bg: #dbeafe;
   --color-badge-viewed: #374151;
   --color-badge-viewed-bg: #f3f4f6;
-  --color-badge-verified: #92400e;
-  --color-badge-verified-bg: #fef3c7;
   --color-badge-applied: #5b21b6;
   --color-badge-applied-bg: #ede9fe;
   --color-posted: #0a66c2;
@@ -59,8 +57,6 @@
     --color-badge-easy-bg: #1e3a5f;
     --color-badge-viewed: #d1d5db;
     --color-badge-viewed-bg: #374151;
-    --color-badge-verified: #fcd34d;
-    --color-badge-verified-bg: #451a03;
     --color-badge-applied: #c4b5fd;
     --color-badge-applied-bg: #2e1065;
     --color-posted: #60a5fa;
@@ -369,11 +365,6 @@ select:focus, input[type="text"]:focus {
   background: var(--color-badge-applied-bg);
 }
 
-.badge-verified {
-  color: var(--color-badge-verified);
-  background: var(--color-badge-verified-bg);
-}
-
 /* ── Job Footer ──────────────────────────────────────────────────────────────── */
 .job-footer {
   display: flex;
@@ -438,39 +429,6 @@ select:focus, input[type="text"]:focus {
   font-size: 11px;
   color: var(--color-text-secondary);
   font-weight: 500;
-}
-
-/* ── Fetch More Footer ───────────────────────────────────────────────────────── */
-.fetch-more-footer {
-  padding: 10px 12px;
-  background: var(--color-bg-header);
-  border-top: 1px solid var(--color-border);
-  flex-shrink: 0;
-  display: flex;
-  justify-content: center;
-}
-
-.btn-fetch-more-large {
-  width: 100%;
-  padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  background: #057642;
-  color: #fff;
-  border-color: #057642;
-  border-radius: var(--radius-btn);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.btn-fetch-more-large:hover {
-  background: #046237;
-  border-color: #046237;
-}
-
-.btn-fetch-more-large:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 /* ── Scrollbar ───────────────────────────────────────────────────────────────── */

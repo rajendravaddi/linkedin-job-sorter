@@ -25,7 +25,6 @@
   const JOBS_VIEW_RE = /\/jobs\/view\/(\d{6,})/;
   const VALID_URL_RE = /^https:\/\/www\.linkedin\.com\/jobs\/view\/\d+\/?$/;
   const LOCATION_WORKPLACE_RE = /^(.*)\s*\((On-site|Remote|Hybrid)\)$/i;
-  const VERIFIED_JOB_RE = /\(Verified job\)$/i;
   const WORKPLACE_CANONICAL = { 'on-site': 'On-site', 'remote': 'Remote', 'hybrid': 'Hybrid' };
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -277,7 +276,6 @@
 
     // ── Title ───────────────────────────────────────────────────────────────
     let title = null;
-    let verified = null;
 
     const titleP = contentCandidates[0] || null;
     if (titleP) {
@@ -286,10 +284,6 @@
       // Prefer visible text (stripped of icon elements)
       let titleText = visible;
 
-      // If visible is empty, fall back to sr minus "(Verified job)" suffix
-      if (!titleText) {
-        titleText = sr.replace(VERIFIED_JOB_RE, '').trim();
-      }
 
       if (!titleText) {
         // Last fallback: dismiss button aria-label
@@ -303,8 +297,6 @@
 
       if (titleText) {
         title = titleText;
-        // Verified: sr ends with "(Verified job)" (case-insensitive)
-        if (VERIFIED_JOB_RE.test(sr)) verified = true;
       }
     } else {
       // Try dismiss button as fallback when no content paragraphs found
@@ -404,7 +396,6 @@
       promoted: promoted || null,
       viewed: viewed || null,
       applied: applied || null,
-      verified: verified || null,
       earlyApplicant: earlyApplicant || null,
       originalIndex,
       source: 'linkedin-rendered-card',

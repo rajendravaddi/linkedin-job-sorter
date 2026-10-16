@@ -30,7 +30,6 @@ function makeJob(overrides = {}) {
     easyApply: null,
     promoted: null,
     viewed: null,
-    verified: null,
     earlyApplicant: null,
     originalIndex: 0,
     source: 'linkedin-rendered-card',

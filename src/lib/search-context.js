@@ -78,11 +78,11 @@
     }
 
     const cleanPath = url.pathname.replace(/\/+$/, '');
-    if (cleanPath !== '/jobs/search-results') {
+    if (!cleanPath.startsWith('/jobs/search')) {
       return {
         valid: false,
         code: 'NOT_SEARCH_PAGE',
-        reason: 'Please navigate to a LinkedIn job search results page (linkedin.com/jobs/search-results) to crawl jobs.',
+        reason: 'Please navigate to a LinkedIn job search results page (linkedin.com/jobs/search) to crawl jobs.',
       };
     }
 

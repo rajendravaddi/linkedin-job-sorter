@@ -104,6 +104,52 @@ describe('crawler findNextButton', () => {
     assert.equal(btn.textContent.trim(), 'Next');
   });
 
+  it('returns null when button has data-testid="pagination-controls-next-button" without -visible (last page)', () => {
+    const html = `
+      <div class="jobs-search-results-list">
+        <button type="button" data-testid="pagination-controls-next-button">
+          <span>Next</span>
+        </button>
+      </div>
+    `;
+    const dom = new JSDOM(html);
+    const btn = findNextButton(dom.window.document);
+    assert.equal(btn, null, 'Non-visible next button should return null');
+  });
+
+  it('returns null when button has data-testid="pagination-controls-next-button-disabled"', () => {
+    const html = `
+      <button type="button" data-testid="pagination-controls-next-button-disabled">
+        <span>Next</span>
+      </button>
+    `;
+    const dom = new JSDOM(html);
+    const btn = findNextButton(dom.window.document);
+    assert.equal(btn, null, 'Disabled testid button should return null');
+  });
+
+  it('returns null when button has class artdeco-button--disabled', () => {
+    const html = `
+      <button type="button" class="artdeco-button--disabled" data-testid="pagination-controls-next-button-visible">
+        <span>Next</span>
+      </button>
+    `;
+    const dom = new JSDOM(html);
+    const btn = findNextButton(dom.window.document);
+    assert.equal(btn, null, 'artdeco-button--disabled should return null');
+  });
+
+  it('returns null when button has style="display:none"', () => {
+    const html = `
+      <button type="button" style="display:none" data-testid="pagination-controls-next-button-visible">
+        <span>Next</span>
+      </button>
+    `;
+    const dom = new JSDOM(html);
+    const btn = findNextButton(dom.window.document);
+    assert.equal(btn, null, 'Hidden display:none button should return null');
+  });
+
   it('isClickable returns false for null or disabled elements', () => {
     assert.equal(isClickable(null), false);
     const dom = new JSDOM('<button disabled></button>');

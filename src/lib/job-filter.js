@@ -18,7 +18,6 @@
    * @param {Object[]} jobs - Array of job records.
    * @param {Object} [options={}] - Filter options.
    * @param {string}  [options.query]         - Case-insensitive match against title and company.
-   * @param {boolean} [options.knownTimeOnly] - Keep only jobs where ageMinutes !== null.
    * @param {boolean} [options.easyApplyOnly] - Keep only jobs where easyApply === true.
    * @param {boolean} [options.hideViewed]    - Keep only jobs where viewed !== true.
    * @param {boolean} [options.hideApplied]   - Keep only jobs where applied !== true.
@@ -39,7 +38,7 @@
         if (!titleMatch && !companyMatch) return false;
       }
 
-      // Only jobs with known posting time
+      // Only jobs with known posting time (legacy option support)
       if (knownTimeOnly && job.ageMinutes == null) return false;
 
       // Only Easy Apply jobs

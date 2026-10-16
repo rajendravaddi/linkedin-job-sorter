@@ -64,15 +64,12 @@
   const elJobList              = $('job-list');
   const elSortSelect           = $('sort-select');
   const elFilterQuery          = $('filter-query');
-  const elKnownTime            = $('filter-known-time');
   const elHideViewed           = $('filter-hide-viewed');
   const elHideApplied          = $('filter-hide-applied');
   const elEasyApply            = $('filter-easy-apply');
   const elEasyLabel            = $('easy-apply-label');
   const elBtnRefresh           = $('btn-refresh');
   const elBtnFetchMore         = $('btn-fetch-more');
-  const elBtnFetchMoreFooter   = $('btn-fetch-more-footer');
-  const elFetchMoreFooter      = $('fetch-more-footer');
   const elCrawlProgress        = $('crawl-progress-container');
   const elCrawlProgressFill    = $('crawl-progress-fill');
   const elCrawlProgressLabel   = $('crawl-progress-label');
@@ -123,16 +120,12 @@
       elBtnFetchMore.disabled = busy;
       elBtnFetchMore.textContent = busy ? 'Fetching…' : 'Fetch More';
     }
-    if (elBtnFetchMoreFooter) {
-      elBtnFetchMoreFooter.disabled = busy;
-      elBtnFetchMoreFooter.textContent = busy ? 'Fetching Next 10 Pages…' : 'Fetch Next 10 Pages';
-    }
   }
 
   function updateFetchMoreVisibility(visible) {
-    const show = visible && !isCrawling;
-    if (elBtnFetchMore) elBtnFetchMore.style.display = show ? '' : 'none';
-    if (elFetchMoreFooter) elFetchMoreFooter.style.display = show ? '' : 'none';
+    if (elBtnFetchMore) {
+      elBtnFetchMore.style.display = (visible && !isCrawling) ? '' : 'none';
+    }
   }
 
   function updateProgressUI(pageNumber, hasNextPage, customText) {
@@ -294,7 +287,6 @@
     if (job.easyApply      === true) { badges.appendChild(makeBadge('Easy Apply',       'badge-easy'));    hasBadges = true; }
     if (job.applied        === true) { badges.appendChild(makeBadge('Applied',          'badge-applied')); hasBadges = true; }
     if (job.viewed         === true) { badges.appendChild(makeBadge('Viewed',           'badge-viewed'));  hasBadges = true; }
-    if (job.verified       === true) { badges.appendChild(makeBadge('Verified',         'badge-verified')); hasBadges = true; }
 
     if (hasBadges) card.appendChild(badges);
 
@@ -331,13 +323,12 @@
   function renderJobs() {
     const mode          = elSortSelect ? elSortSelect.value : 'newest';
     const query         = elFilterQuery ? elFilterQuery.value : '';
-    const knownTimeOnly = elKnownTime ? elKnownTime.checked : false;
     const hideViewed    = elHideViewed ? elHideViewed.checked : false;
     const hideApplied   = elHideApplied ? elHideApplied.checked : false;
     const easyApplyOnly = elEasyApply ? elEasyApply.checked : false;
 
     const sorted   = LJS.sortJobs(allJobs, mode);
-    const filtered = LJS.filterJobs(sorted, { query, knownTimeOnly, easyApplyOnly, hideViewed, hideApplied });
+    const filtered = LJS.filterJobs(sorted, { query, easyApplyOnly, hideViewed, hideApplied });
 
     const total = allJobs.length;
     const shown = filtered.length;
@@ -359,7 +350,6 @@
       clearBtn.textContent = 'Clear filters';
       clearBtn.addEventListener('click', function () {
         if (elFilterQuery) elFilterQuery.value = '';
-        if (elKnownTime) elKnownTime.checked = false;
         if (elHideViewed) elHideViewed.checked = false;
         if (elHideApplied) elHideApplied.checked = false;
         if (elEasyApply) elEasyApply.checked = false;
@@ -652,13 +642,8 @@
     elBtnFetchMore.addEventListener('click', handleFetchMore);
   }
 
-  if (elBtnFetchMoreFooter) {
-    elBtnFetchMoreFooter.addEventListener('click', handleFetchMore);
-  }
-
   if (elSortSelect) elSortSelect.addEventListener('change', renderJobs);
   if (elFilterQuery) elFilterQuery.addEventListener('input', renderJobs);
-  if (elKnownTime) elKnownTime.addEventListener('change', renderJobs);
   if (elHideViewed) elHideViewed.addEventListener('change', renderJobs);
   if (elHideApplied) elHideApplied.addEventListener('change', renderJobs);
   if (elEasyApply) elEasyApply.addEventListener('change', renderJobs);

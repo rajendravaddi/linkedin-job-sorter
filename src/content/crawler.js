@@ -42,9 +42,25 @@
    */
   function isClickable(btn) {
     if (!btn) return false;
-    if (btn.disabled) return false;
+    if (btn.disabled || btn.hasAttribute('disabled')) return false;
     if (btn.getAttribute('aria-disabled') === 'true') return false;
-    if (btn.classList.contains('disabled')) return false;
+    if (btn.getAttribute('aria-hidden') === 'true') return false;
+    if (btn.hidden) return false;
+    if (btn.classList.contains('disabled') || btn.classList.contains('artdeco-button--disabled')) return false;
+
+    // Check data-testid attribute for disabled or hidden
+    const testId = (btn.getAttribute('data-testid') || '').toLowerCase();
+    if (testId.includes('disabled') || testId.includes('hidden')) return false;
+
+    // Check styles
+    if (btn.style && (btn.style.display === 'none' || btn.style.visibility === 'hidden')) return false;
+    if (typeof window !== 'undefined' && typeof window.getComputedStyle === 'function') {
+      try {
+        const style = window.getComputedStyle(btn);
+        if (style && (style.display === 'none' || style.visibility === 'hidden')) return false;
+      } catch (_) {}
+    }
+
     return true;
   }
 
@@ -60,32 +76,32 @@
     if (!doc) return null;
 
     // 1. Primary selector provided by LinkedIn:
-    // data-testid="pagination-controls-next-button-visible"
-    let btn = doc.querySelector('button[data-testid="pagination-controls-next-button-visible"]');
-    if (btn && isClickable(btn)) return btn;
-
-    // 2. Variations of data-testid
-    const testIdSelectors = [
-      'button[data-testid="pagination-controls-next-button"]',
-      'button[data-testid*="pagination-controls-next"]',
-    ];
-    for (const sel of testIdSelectors) {
-      btn = doc.querySelector(sel);
-      if (btn && isClickable(btn)) return btn;
+    // When next page exists, LinkedIn explicitly renders data-testid="pagination-controls-next-button-visible"
+    const visibleBtn = doc.querySelector('button[data-testid="pagination-controls-next-button-visible"]');
+    if (visibleBtn) {
+      return isClickable(visibleBtn) ? visibleBtn : null;
     }
 
-    // 3. Aria-label on button
+    // If LinkedIn renders any pagination next button that is NOT the visible one (e.g. disabled, hidden, or without -visible),
+    // it indicates we are on the last page and no next button is available.
+    const nonVisibleNextBtn = doc.querySelector(
+      'button[data-testid*="pagination-controls-next"], button[data-testid*="pagination-next"]'
+    );
+    if (nonVisibleNextBtn) {
+      return null;
+    }
+
+    // 2. Fallbacks for pages where data-testid is absent (older or alternate LinkedIn layouts)
     const ariaSelectors = [
       'button[aria-label="View next page"]',
       'button[aria-label="Next"]',
-      'button[aria-label*="next page" i]',
     ];
     for (const sel of ariaSelectors) {
-      btn = doc.querySelector(sel);
+      const btn = doc.querySelector(sel);
       if (btn && isClickable(btn)) return btn;
     }
 
-    // 4. Look inside pagination containers for a button with "Next" text or chevron
+    // 3. Fallback within pagination containers
     const paginationContainers = doc.querySelectorAll(
       '.jobs-search-results-list__pagination, [class*="pagination"]'
     );
@@ -95,26 +111,8 @@
         if (!isClickable(b)) continue;
         const text = (b.textContent || '').trim().toLowerCase();
         const aria = (b.getAttribute('aria-label') || '').toLowerCase();
-        if (text === 'next' || aria === 'next' || aria.includes('next page')) {
+        if (text === 'next' || aria === 'next' || aria === 'view next page') {
           return b;
-        }
-        // Check for svg with chevron-right
-        const svg = b.querySelector('svg#chevron-right-small, svg[id*="chevron-right"]');
-        if (svg) return b;
-      }
-    }
-
-    // 5. Fallback across whole document for button containing text "Next"
-    const allButtons = doc.querySelectorAll('button');
-    for (const b of allButtons) {
-      if (!isClickable(b)) continue;
-      const spans = b.querySelectorAll('span');
-      for (const s of spans) {
-        if ((s.textContent || '').trim().toLowerCase() === 'next') {
-          // Verify it looks like pagination or has next icon
-          if (b.querySelector('svg') || b.closest('[class*="pagination"]')) {
-            return b;
-          }
         }
       }
     }
@@ -250,11 +248,10 @@
         const changed = await clickNextAndWait(document, nextBtn);
         if (!changed) {
           chrome.runtime.sendMessage({
-            type: messages.MSG_CRAWL_ERROR || 'LJS_CRAWL_ERROR',
-            error: {
-              code: messages.PAGE_CHANGE_TIMEOUT || 'PAGE_CHANGE_TIMEOUT',
-              message: 'Timed out waiting for next page of jobs to load.',
-            },
+            type: messages.MSG_CRAWL_COMPLETE || 'LJS_CRAWL_COMPLETE',
+            pagesCrawled: 0,
+            moreAvailable: false,
+            reason: 'NO_MORE_PAGES',
           });
           isRunning = false;
           return;
@@ -338,11 +335,10 @@
         const changed = await clickNextAndWait(document, nextBtn);
         if (!changed) {
           chrome.runtime.sendMessage({
-            type: messages.MSG_CRAWL_ERROR || 'LJS_CRAWL_ERROR',
-            error: {
-              code: messages.PAGE_CHANGE_TIMEOUT || 'PAGE_CHANGE_TIMEOUT',
-              message: `Timed out waiting for page ${currentPageNumber + 1} to load.`,
-            },
+            type: messages.MSG_CRAWL_COMPLETE || 'LJS_CRAWL_COMPLETE',
+            pagesCrawled: pagesCrawledThisRun,
+            moreAvailable: false,
+            reason: 'NO_MORE_PAGES',
           });
           break;
         }
