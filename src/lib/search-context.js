@@ -82,7 +82,7 @@
       return {
         valid: false,
         code: 'NOT_SEARCH_PAGE',
-        reason: 'Please navigate to a LinkedIn job search results page (linkedin.com/jobs/search) to crawl jobs.',
+        reason: 'Please navigate to a LinkedIn job search page (linkedin.com/jobs/search-results) to fetch jobs.',
       };
     }
 
@@ -91,7 +91,7 @@
       return {
         valid: false,
         code: 'FILTER_REQUIRED',
-        reason: 'Please apply the "Past 24 hours" date posted filter on LinkedIn before crawling jobs.',
+        reason: 'Please apply the "Past 24 hours" date posted filter on LinkedIn before fetching jobs.',
       };
     }
 

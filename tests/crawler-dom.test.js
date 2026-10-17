@@ -18,7 +18,7 @@ require('../src/lib/deduplicate-jobs');
 require('../src/lib/card-extractor');
 require('../src/content/crawler');
 
-const { findNextButton, isClickable } = globalThis.LJS;
+const { findNextButton, isClickable, isLoadingStateActive } = globalThis.LJS;
 
 describe('crawler findNextButton', () => {
 
@@ -156,4 +156,48 @@ describe('crawler findNextButton', () => {
     assert.equal(isClickable(dom.window.document.querySelector('button')), false);
   });
 });
+
+describe('crawler isLoadingStateActive', () => {
+  it('returns false for null doc or empty doc', () => {
+    assert.equal(isLoadingStateActive(null), false);
+    const dom = new JSDOM('<div><p>Hello</p></div>');
+    assert.equal(isLoadingStateActive(dom.window.document), false);
+  });
+
+  it('detects .artdeco-loader', () => {
+    const dom = new JSDOM('<div class="artdeco-loader"><span class="artdeco-loader__bars"></span></div>');
+    assert.equal(isLoadingStateActive(dom.window.document), true);
+  });
+
+  it('detects .jobs-search-results-list--loading', () => {
+    const dom = new JSDOM('<div class="jobs-search-results-list jobs-search-results-list--loading"></div>');
+    assert.equal(isLoadingStateActive(dom.window.document), true);
+  });
+
+  it('detects [data-view-name*="loading"]', () => {
+    const dom = new JSDOM('<div data-view-name="job-search-loading-state"></div>');
+    assert.equal(isLoadingStateActive(dom.window.document), true);
+  });
+
+  it('detects .ghost-job-card', () => {
+    const dom = new JSDOM('<div class="ghost-job-card"></div>');
+    assert.equal(isLoadingStateActive(dom.window.document), true);
+  });
+
+  it('returns false when loader element has hidden attribute', () => {
+    const dom = new JSDOM('<div class="artdeco-loader" hidden></div>');
+    assert.equal(isLoadingStateActive(dom.window.document), false);
+  });
+
+  it('returns false when loader element has aria-hidden="true"', () => {
+    const dom = new JSDOM('<div class="artdeco-loader" aria-hidden="true"></div>');
+    assert.equal(isLoadingStateActive(dom.window.document), false);
+  });
+
+  it('returns false when loader element has style="display:none"', () => {
+    const dom = new JSDOM('<div class="artdeco-loader" style="display:none"></div>');
+    assert.equal(isLoadingStateActive(dom.window.document), false);
+  });
+});
+
 

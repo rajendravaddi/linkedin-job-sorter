@@ -145,20 +145,45 @@
   }
 
   /**
+   * Check whether LinkedIn is currently showing a loading skeleton, spinner, or loader.
+   *
+   * @param {Document|Element} doc
+   * @returns {boolean}
+   */
+  function isLoadingStateActive(doc) {
+    if (!doc) return false;
+    const loader = doc.querySelector(
+      '.artdeco-loader, .jobs-search-results-list--loading, [data-view-name*="loading"], .ghost-job-card, [class*="skeleton"], [class*="artdeco-loader"]'
+    );
+    if (!loader) return false;
+    if (loader.hidden) return false;
+    if (loader.getAttribute && loader.getAttribute('aria-hidden') === 'true') return false;
+    if (loader.style && (loader.style.display === 'none' || loader.style.visibility === 'hidden')) return false;
+    return true;
+  }
+
+  /**
    * Wait until job cards are rendered in the document.
    *
    * @param {Document} doc
-   * @param {number} [timeoutMs=6000]
+   * @param {number} [timeoutMs=15000]
    * @returns {Promise<boolean>}
    */
-  async function waitForCards(doc, timeoutMs = 6000) {
+  async function waitForCards(doc, timeoutMs = 15000) {
     const start = Date.now();
-    while (Date.now() - start < timeoutMs) {
+    let maxWait = timeoutMs;
+    while (Date.now() - start < maxWait) {
       if (abortRequested) return false;
       const cards = root.LJS && root.LJS.findCards
         ? root.LJS.findCards(doc)
         : Array.from(doc.querySelectorAll("[componentkey^='job-card-component-ref-']"));
       if (cards && cards.length > 0) return true;
+
+      // Extend wait time if LinkedIn is actively loading content
+      if (isLoadingStateActive(doc) && maxWait < 25000) {
+        maxWait = 25000;
+      }
+
       await sleep(200);
     }
     return false;
@@ -169,10 +194,10 @@
    *
    * @param {Document} doc
    * @param {Element} nextBtn
-   * @param {number} [timeoutMs=8000]
+   * @param {number} [timeoutMs=16000]
    * @returns {Promise<boolean>}
    */
-  async function clickNextAndWait(doc, nextBtn, timeoutMs = 8000) {
+  async function clickNextAndWait(doc, nextBtn, timeoutMs = 16000) {
     const prevSig = getCardsSignature(doc);
     const prevUrl = window.location.href;
 
@@ -182,7 +207,8 @@
     nextBtn.click();
 
     const start = Date.now();
-    while (Date.now() - start < timeoutMs) {
+    let maxWait = timeoutMs;
+    while (Date.now() - start < maxWait) {
       await sleep(250);
       if (abortRequested) return false;
 
@@ -200,6 +226,11 @@
       if (currentUrl !== prevUrl && currentSig && currentSig !== prevSig) {
         await sleep(500);
         return true;
+      }
+
+      // Extend wait time if LinkedIn is actively showing a spinner or skeleton
+      if (isLoadingStateActive(doc) && maxWait < 25000) {
+        maxWait = 25000;
       }
     }
 
@@ -247,11 +278,12 @@
 
         const changed = await clickNextAndWait(document, nextBtn);
         if (!changed) {
+          const stillHasNext = !!findNextButton(document);
           chrome.runtime.sendMessage({
             type: messages.MSG_CRAWL_COMPLETE || 'LJS_CRAWL_COMPLETE',
             pagesCrawled: 0,
-            moreAvailable: false,
-            reason: 'NO_MORE_PAGES',
+            moreAvailable: stillHasNext,
+            reason: stillHasNext ? 'NETWORK_TIMEOUT' : 'NO_MORE_PAGES',
           });
           isRunning = false;
           return;
@@ -276,12 +308,13 @@
         // Ensure job cards are loaded
         const hasCards = await waitForCards(document);
         if (!hasCards) {
+          const nextBtn = findNextButton(document);
+          const stillHasMore = !!nextBtn || pagesCrawledThisRun > 0;
           chrome.runtime.sendMessage({
-            type: messages.MSG_CRAWL_ERROR || 'LJS_CRAWL_ERROR',
-            error: {
-              code: messages.NO_CARDS || 'NO_CARDS',
-              message: `No job cards found on page ${currentPageNumber}.`,
-            },
+            type: messages.MSG_CRAWL_COMPLETE || 'LJS_CRAWL_COMPLETE',
+            pagesCrawled: pagesCrawledThisRun,
+            moreAvailable: stillHasMore,
+            reason: 'NETWORK_TIMEOUT',
           });
           break;
         }
@@ -334,11 +367,12 @@
         // Click Next and wait for new cards
         const changed = await clickNextAndWait(document, nextBtn);
         if (!changed) {
+          const nextBtnStillThere = !!findNextButton(document);
           chrome.runtime.sendMessage({
             type: messages.MSG_CRAWL_COMPLETE || 'LJS_CRAWL_COMPLETE',
             pagesCrawled: pagesCrawledThisRun,
-            moreAvailable: false,
-            reason: 'NO_MORE_PAGES',
+            moreAvailable: nextBtnStillThere,
+            reason: nextBtnStillThere ? 'NETWORK_TIMEOUT' : 'NO_MORE_PAGES',
           });
           break;
         }
@@ -349,7 +383,7 @@
         type: messages.MSG_CRAWL_ERROR || 'LJS_CRAWL_ERROR',
         error: {
           code: messages.EXTRACTION_FAILED || 'EXTRACTION_FAILED',
-          message: err.message || 'Crawl failed unexpectedly.',
+          message: err.message || 'Fetching jobs failed unexpectedly.',
         },
       });
     } finally {
@@ -400,6 +434,7 @@
   return {
     findNextButton,
     isClickable,
+    isLoadingStateActive,
     getCardsSignature,
     runCrawl,
     initCrawlerListener,
