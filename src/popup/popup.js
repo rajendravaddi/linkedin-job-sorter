@@ -58,11 +58,9 @@
   const $ = id => document.getElementById(id);
 
   const elJobCount             = $('job-count');
-  const elSearchCtx            = $('search-context');
   const elNotice               = $('notice');
   const elStatus               = $('status');
   const elJobList              = $('job-list');
-  const elSortSelect           = $('sort-select');
   const elFilterQuery          = $('filter-query');
   const elHideViewed           = $('filter-hide-viewed');
   const elHideApplied          = $('filter-hide-applied');
@@ -94,20 +92,11 @@
       : `${shown} of ${total} job${total === 1 ? '' : 's'}`;
   }
 
-  function renderSearchContext(ctx) {
-    if (!elSearchCtx) return;
-    if (!ctx) { elSearchCtx.textContent = ''; return; }
-    const parts = [];
-    if (ctx.keywords)        parts.push(`"${ctx.keywords}"`);
-    if (ctx.location)        parts.push(ctx.location);
-    if (ctx.dateFilterLabel) parts.push(ctx.dateFilterLabel);
-    elSearchCtx.textContent = parts.join(' · ');
-  }
 
   function setBtnRefreshBusy(busy) {
     if (!elBtnRefresh) return;
     elBtnRefresh.disabled = busy;
-    elBtnRefresh.textContent = busy ? 'Crawling…' : 'Refresh';
+    elBtnRefresh.textContent = busy ? 'Fetching…' : 'Refresh';
   }
 
   function setBtnFetchMoreBusy(busy) {
@@ -151,19 +140,18 @@
   }
 
   function showInitialState() {
+    elBtnRefresh.textContent = "Start";
     clearJobList();
     setJobCount(0, 0);
-    renderSearchContext(null);
     setNotice('');
     updateFetchMoreVisibility(false);
     hideProgressUI();
-    setStatus('Click "Refresh" on a LinkedIn job search page with the "Past 24 hours" filter applied to start fetching jobs.');
+    setStatus('Click "Start" on a LinkedIn job search page with the "Past 24 hours" filter applied to start fetching jobs.');
   }
 
   function showState(state, detail) {
     clearJobList();
     setJobCount(0, 0);
-    renderSearchContext(null);
     setNotice('');
     updateFetchMoreVisibility(false);
     hideProgressUI();
@@ -225,20 +213,11 @@
     const validUrl = job.url && VALID_URL_RE.test(job.url) ? job.url : null;
 
     let titleEl;
-    if (validUrl) {
-      titleEl = document.createElement('a');
-      titleEl.className = 'job-title';
-      titleEl.textContent = job.title;
-      titleEl.href = '#';
-      titleEl.addEventListener('click', function (e) {
-        e.preventDefault();
-        chrome.tabs.create({ url: validUrl });
-      });
-    } else {
-      titleEl = document.createElement('span');
-      titleEl.className = 'job-title';
-      titleEl.textContent = job.title;
-    }
+    
+    titleEl = document.createElement('span');
+    titleEl.className = 'job-title';
+    titleEl.textContent = job.title;
+  
     card.appendChild(titleEl);
 
     // ── Subtitle ─────────────────────────────────────────────────────────────
@@ -301,7 +280,7 @@
     if (validUrl) {
       const openBtn = document.createElement('button');
       openBtn.className = 'btn-open';
-      openBtn.textContent = 'Open on LinkedIn';
+      openBtn.textContent = 'Open';
       openBtn.addEventListener('click', function () {
         chrome.tabs.create({ url: validUrl });
       });
@@ -316,7 +295,7 @@
   // ── Render ─────────────────────────────────────────────────────────────────
 
   function renderJobs() {
-    const mode          = elSortSelect ? elSortSelect.value : 'newest';
+    const mode          = 'newest';
     const query         = elFilterQuery ? elFilterQuery.value : '';
     const hideViewed    = elHideViewed ? elHideViewed.checked : false;
     const hideApplied   = elHideApplied ? elHideApplied.checked : false;
@@ -329,7 +308,6 @@
     const shown = filtered.length;
 
     setJobCount(shown, total);
-    renderSearchContext(searchContext);
 
     // Show Easy Apply checkbox only when relevant
     const hasEasyApply = allJobs.some(j => j.easyApply === true);
@@ -536,7 +514,6 @@
     crawlState = { pagesCompleted: 0, moreAvailable: false };
     clearJobList();
     setJobCount(0, 0);
-    renderSearchContext(null);
     setNotice('');
     updateFetchMoreVisibility(false);
 
@@ -649,7 +626,6 @@
     elBtnFetchMore.addEventListener('click', handleFetchMore);
   }
 
-  if (elSortSelect) elSortSelect.addEventListener('change', renderJobs);
   if (elFilterQuery) elFilterQuery.addEventListener('input', renderJobs);
   if (elHideViewed) elHideViewed.addEventListener('change', renderJobs);
   if (elHideApplied) elHideApplied.addEventListener('change', renderJobs);
@@ -667,6 +643,8 @@
       const savedState = result[STORAGE_KEY_STATE];
 
       if (Array.isArray(savedJobs) && savedJobs.length > 0) {
+        elBtnRefresh.textContent = "Refresh";
+
         allJobs = savedJobs;
         crawlState = savedState || { pagesCompleted: 1, moreAvailable: false };
         searchContext = crawlState.searchContext || null;
