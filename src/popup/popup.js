@@ -81,11 +81,6 @@
     elStatus.textContent = text;
   }
 
-  function clearStatus() {
-    if (!elStatus) return;
-    elStatus.textContent = '';
-  }
-
   function setNotice(text) {
     if (!elNotice) return;
     elNotice.textContent = text;
@@ -162,7 +157,7 @@
     setNotice('');
     updateFetchMoreVisibility(false);
     hideProgressUI();
-    setStatus('Click "Refresh" on a LinkedIn job search page with the "Past 24 hours" filter applied to start crawling jobs.');
+    setStatus('Click "Refresh" on a LinkedIn job search page with the "Past 24 hours" filter applied to start fetching jobs.');
   }
 
   function showState(state, detail) {
@@ -493,13 +488,16 @@
       setBtnFetchMoreBusy(false);
       hideProgressUI();
 
-      crawlState.moreAvailable = message.moreAvailable;
-      updateFetchMoreVisibility(message.moreAvailable);
+      crawlState.moreAvailable = !!message.moreAvailable;
+      updateFetchMoreVisibility(crawlState.moreAvailable);
 
-      if (message.moreAvailable) {
+      if (message.reason === 'NETWORK_TIMEOUT') {
+        const nextPage = (crawlState.pagesCompleted || 0) + 1;
+        setStatus(`Network delay while loading page ${nextPage}. ${allJobs.length} jobs saved so far. Click "Fetch More" to resume.`);
+      } else if (crawlState.moreAvailable) {
         setStatus(`Reached page ${crawlState.pagesCompleted} (${allJobs.length} jobs). Click "Fetch More" for next 10 pages.`);
       } else {
-        setStatus(`Crawl complete! Fetched ${allJobs.length} jobs across ${crawlState.pagesCompleted} page${crawlState.pagesCompleted === 1 ? '' : 's'}.`);
+        setStatus(`Fetch complete! Fetched ${allJobs.length} jobs across ${crawlState.pagesCompleted} page${crawlState.pagesCompleted === 1 ? '' : 's'}.`);
       }
 
       persistJobsAndState();
@@ -510,7 +508,16 @@
       setBtnRefreshBusy(false);
       setBtnFetchMoreBusy(false);
       hideProgressUI();
-      setStatus(`Crawl stopped: ${message.error && message.error.message ? message.error.message : 'Error encountered during crawl'}`);
+
+      const errMsg = message.error && message.error.message ? message.error.message : 'Error encountered during fetch';
+      if (allJobs.length > 0) {
+        crawlState.moreAvailable = true;
+        updateFetchMoreVisibility(true);
+        setStatus(`Fetch stopped: ${errMsg}. Click "Fetch More" to retry.`);
+        persistJobsAndState();
+      } else {
+        setStatus(`Fetch stopped: ${errMsg}`);
+      }
     }
   }
 
@@ -561,13 +568,13 @@
       await ensureScriptsInjected(tab.id);
 
       // 5. Kick off crawler from page 1
-      setStatus('Starting crawl from page 1…');
+      setStatus('Started fetching from page 1…');
       chrome.tabs.sendMessage(tab.id, {
         type: LJS.MSG_CRAWL_START,
         maxPages: PAGE_LIMIT,
       }, function (response) {
         if (chrome.runtime.lastError) {
-          setStatus(`Could not start crawl: ${chrome.runtime.lastError.message}`);
+          setStatus(`Could not start job fetch: ${chrome.runtime.lastError.message}`);
           isCrawling = false;
           setBtnRefreshBusy(false);
           hideProgressUI();
@@ -604,7 +611,7 @@
     setBtnFetchMoreBusy(true);
 
     const nextPageNumber = (crawlState.pagesCompleted || 0) + 1;
-    setStatus(`Continuing crawl from page ${nextPageNumber}…`);
+    setStatus(`Continuing jobs fetch from page ${nextPageNumber}…`);
     updateProgressUI(crawlState.pagesCompleted, true, `Advancing to page ${nextPageNumber}…`);
 
     try {
@@ -616,7 +623,7 @@
         startPageNumber: nextPageNumber,
       }, function (response) {
         if (chrome.runtime.lastError) {
-          setStatus(`Could not continue crawl: ${chrome.runtime.lastError.message}`);
+          setStatus(`Could not continue job fetch: ${chrome.runtime.lastError.message}`);
           isCrawling = false;
           setBtnRefreshBusy(false);
           setBtnFetchMoreBusy(false);
@@ -668,9 +675,9 @@
         updateFetchMoreVisibility(crawlState.moreAvailable);
 
         if (crawlState.moreAvailable) {
-          setStatus(`Crawled ${crawlState.pagesCompleted} pages (${allJobs.length} jobs). Click "Fetch More" to crawl next 10 pages.`);
+          setStatus(`Fetched ${crawlState.pagesCompleted} pages (${allJobs.length} jobs). Click "Fetch More" to get next 10 pages.`);
         } else {
-          setStatus(`Loaded ${allJobs.length} crawled jobs from storage.`);
+          setStatus(`Loaded ${allJobs.length} jobs from storage.`);
         }
       } else {
         // Storage empty — do NOT automatically start crawling
