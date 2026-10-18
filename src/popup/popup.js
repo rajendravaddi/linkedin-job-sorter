@@ -57,21 +57,21 @@
 
   const $ = id => document.getElementById(id);
 
-  const elJobCount             = $('job-count');
-  const elNotice               = $('notice');
-  const elStatus               = $('status');
-  const elJobList              = $('job-list');
-  const elFilterQuery          = $('filter-query');
-  const elHideViewed           = $('filter-hide-viewed');
-  const elHideApplied          = $('filter-hide-applied');
-  const elEasyApply            = $('filter-easy-apply');
-  const elEasyLabel            = $('easy-apply-label');
-  const elBtnRefresh           = $('btn-refresh');
-  const elBtnFetchMore         = $('btn-fetch-more');
-  const elCrawlProgress        = $('crawl-progress-container');
-  const elCrawlProgressFill    = $('crawl-progress-fill');
-  const elCrawlProgressLabel   = $('crawl-progress-label');
-  const controls               = $('controls');
+  const elJobCount = $('job-count');
+  const elNotice = $('notice');
+  const elStatus = $('status');
+  const elJobList = $('job-list');
+  const elFilterQuery = $('filter-query');
+  const elHideViewed = $('filter-hide-viewed');
+  const elHideApplied = $('filter-hide-applied');
+  const elEasyApply = $('filter-easy-apply');
+  const elEasyLabel = $('easy-apply-label');
+  const elBtnRefresh = $('btn-refresh');
+  const elBtnFetchMore = $('btn-fetch-more');
+  const elCrawlProgress = $('crawl-progress-container');
+  const elCrawlProgressFill = $('crawl-progress-fill');
+  const elCrawlProgressLabel = $('crawl-progress-label');
+  const controls = $('controls');
 
   // ── UI helpers ─────────────────────────────────────────────────────────────
 
@@ -195,8 +195,8 @@
 
   function buildSubtitle(job) {
     const parts = [];
-    if (job.company)       parts.push(job.company);
-    if (job.location)      parts.push(job.location);
+    if (job.company) parts.push(job.company);
+    if (job.location) parts.push(job.location);
     if (job.workplaceType) parts.push(job.workplaceType);
     return parts.join(' · ');
   }
@@ -217,11 +217,11 @@
     const validUrl = job.url && VALID_URL_RE.test(job.url) ? job.url : null;
 
     let titleEl;
-    
+
     titleEl = document.createElement('span');
     titleEl.className = 'job-title';
     titleEl.textContent = job.title;
-  
+
     card.appendChild(titleEl);
 
     // ── Subtitle ─────────────────────────────────────────────────────────────
@@ -261,10 +261,10 @@
     badges.className = 'badges';
     let hasBadges = false;
 
-    if (job.earlyApplicant === true) { badges.appendChild(makeBadge('Early applicant', 'badge-early'));   hasBadges = true; }
-    if (job.easyApply      === true) { badges.appendChild(makeBadge('Easy Apply',       'badge-easy'));    hasBadges = true; }
-    if (job.applied        === true) { badges.appendChild(makeBadge('Applied',          'badge-applied')); hasBadges = true; }
-    if (job.viewed         === true) { badges.appendChild(makeBadge('Viewed',           'badge-viewed'));  hasBadges = true; }
+    if (job.earlyApplicant === true) { badges.appendChild(makeBadge('Early applicant', 'badge-early')); hasBadges = true; }
+    if (job.easyApply === true) { badges.appendChild(makeBadge('Easy Apply', 'badge-easy')); hasBadges = true; }
+    if (job.applied === true) { badges.appendChild(makeBadge('Applied', 'badge-applied')); hasBadges = true; }
+    if (job.viewed === true) { badges.appendChild(makeBadge('Viewed', 'badge-viewed')); hasBadges = true; }
 
     if (hasBadges) card.appendChild(badges);
 
@@ -285,9 +285,58 @@
       const openBtn = document.createElement('button');
       openBtn.className = 'btn-open';
       openBtn.textContent = 'Open';
-      openBtn.addEventListener('click', function () {
-        chrome.tabs.create({ url: validUrl });
+      // openBtn.addEventListener('click', function () {
+      //   chrome.tabs.create({ url: validUrl });
+      // });
+
+      openBtn.addEventListener('click', async function () {
+        try {
+          // Get the active tab in the current browser window.
+          const [tab] = await chrome.tabs.query({
+            active: true,
+            currentWindow: true
+          });
+
+          if (!tab || !tab.id || !tab.url) {
+            setStatus('Unable to find the current browser tab.');
+            return;
+          }
+
+          // Ensure this is a LinkedIn job search results page.
+          const currentUrl = new URL(tab.url);
+
+          if (
+            currentUrl.hostname !== 'www.linkedin.com' ||
+            !currentUrl.pathname.startsWith('/jobs/search-results/')
+          ) {
+            setStatus('Open a LinkedIn job search results page first.');
+            return;
+          }
+
+          // Extract the job ID from the job's URL.
+          const jobUrl = new URL(validUrl);
+          const match = jobUrl.pathname.match(/\/jobs\/view\/(\d+)/);
+
+          if (!match) {
+            setStatus('Unable to determine this job ID.');
+            return;
+          }
+
+          const jobId = match[1];
+
+          // Change only currentJobId; preserve the other search parameters.
+          currentUrl.searchParams.set('currentJobId', jobId);
+
+          // Navigate the existing tab instead of creating a new tab.
+          await chrome.tabs.update(tab.id, {
+            url: currentUrl.toString()
+          });
+        } catch (error) {
+          console.error('[LJS] Failed to open job:', error);
+          setStatus('Unable to open this job in the current tab.');
+        }
       });
+
       footer.appendChild(openBtn);
     }
 
@@ -299,13 +348,13 @@
   // ── Render ─────────────────────────────────────────────────────────────────
 
   function renderJobs() {
-    const mode          = 'newest';
-    const query         = elFilterQuery ? elFilterQuery.value : '';
-    const hideViewed    = elHideViewed ? elHideViewed.checked : false;
-    const hideApplied   = elHideApplied ? elHideApplied.checked : false;
+    const mode = 'newest';
+    const query = elFilterQuery ? elFilterQuery.value : '';
+    const hideViewed = elHideViewed ? elHideViewed.checked : false;
+    const hideApplied = elHideApplied ? elHideApplied.checked : false;
     const easyApplyOnly = elEasyApply ? elEasyApply.checked : false;
 
-    const sorted   = LJS.sortJobs(allJobs, mode);
+    const sorted = LJS.sortJobs(allJobs, mode);
     const filtered = LJS.filterJobs(sorted, { query, easyApplyOnly, hideViewed, hideApplied });
 
     const total = allJobs.length;
@@ -324,7 +373,7 @@
       setStatus('No jobs match the current filters.');
       return;
     }
-    if (total == shown){
+    if (total == shown) {
       setStatus('');
     } else {
       setStatus(`Filtered ${shown} jobs from ${total} jobs.`);
@@ -332,7 +381,7 @@
 
     // Partial times notice
     const unknownCount = filtered.filter(j => j.ageMinutes === null).length;
-    const knownCount   = filtered.filter(j => j.ageMinutes !== null).length;
+    const knownCount = filtered.filter(j => j.ageMinutes !== null).length;
     if (unknownCount > 0 && knownCount > 0) {
       setNotice(
         `Note: ${unknownCount} job${unknownCount > 1 ? 's' : ''} ` +
@@ -368,7 +417,7 @@
     for (const file of CONTENT_SCRIPTS) {
       try {
         await chrome.scripting.executeScript({ target: { tabId }, files: [file] });
-      } catch (_) {}
+      } catch (_) { }
     }
   }
 
@@ -502,7 +551,7 @@
   async function handleRefresh() {
     // If a crawl is currently in progress, stop it first
     if (isCrawling && linkedInTabId) {
-      chrome.tabs.sendMessage(linkedInTabId, { type: LJS.MSG_CRAWL_STOP }, () => {});
+      chrome.tabs.sendMessage(linkedInTabId, { type: LJS.MSG_CRAWL_STOP }, () => { });
     }
 
     // 1. Clear storage & in-memory jobs
