@@ -1,71 +1,107 @@
 /* =============================================================================
    LinkedIn Job Sorter — popup.css
-   Clean, modern styles with CSS custom properties and dark mode support.
+   Styled to match LinkedIn's own design language: light-gray page canvas,
+   white surfaces, pill buttons, LinkedIn blue/green, flat bordered cards.
+   Same selectors as before — no HTML changes needed.
    ============================================================================= */
 
-/* ── Custom Properties ──────────────────────────────────────────────────────── */
+/* ── Design tokens ──────────────────────────────────────────────────────────── */
 :root {
-  --color-bg: #ffffff;
-  --color-bg-header: #f8f9fa;
+  /* Surfaces */
+  --color-bg: #f4f2ee;                 /* LinkedIn canvas */
+  --color-bg-header: #ffffff;
   --color-bg-card: #ffffff;
-  --color-bg-card-hover: #f5f7fa;
-  --color-bg-controls: #f0f2f5;
-  --color-border: #d1d5db;
-  --color-border-card: #e5e7eb;
-  --color-text-primary: #111827;
-  --color-text-secondary: #6b7280;
-  --color-text-muted: #9ca3af;
+  --color-bg-card-hover: #f3f6f8;
+  --color-bg-controls: #ffffff;
+  --color-bg-inset: #edf3f8;           /* LinkedIn search-box fill */
+
+  /* Lines */
+  --color-border: rgba(0, 0, 0, 0.15);
+  --color-border-card: rgba(0, 0, 0, 0.12);
+  --color-divider: rgba(0, 0, 0, 0.08);
+
+  /* Text */
+  --color-text-primary: rgba(0, 0, 0, 0.9);
+  --color-text-secondary: rgba(0, 0, 0, 0.6);
+  --color-text-muted: rgba(0, 0, 0, 0.45);
+
+  /* Brand */
   --color-accent: #0a66c2;
-  --color-accent-hover: #0856a8;
-  --color-badge-early: #065f46;
-  --color-badge-early-bg: #d1fae5;
-  --color-badge-easy: #1e40af;
-  --color-badge-easy-bg: #dbeafe;
-  --color-badge-viewed: #374151;
-  --color-badge-viewed-bg: #f3f4f6;
-  --color-badge-applied: #5b21b6;
-  --color-badge-applied-bg: #ede9fe;
+  --color-accent-hover: #004182;
+  --color-accent-tint: #e8f3ff;
+  --color-success: #057642;
+  --color-success-hover: #044d2c;
+  --color-success-tint: #e7f3ec;
+
+  /* Badges */
+  --color-badge-early: #057642;
+  --color-badge-early-bg: #e7f3ec;
+  --color-badge-easy: #0a66c2;
+  --color-badge-easy-bg: #e8f3ff;
+  --color-badge-viewed: #56687a;
+  --color-badge-viewed-bg: #eef0f2;
+  --color-badge-applied: #6b3fa0;
+  --color-badge-applied-bg: #f1e9fa;
   --color-posted: #0a66c2;
-  --color-status-bg: #fffbeb;
-  --color-status-border: #fcd34d;
+
+  /* Status banner */
+  --color-status-bg: #e8f3ff;
+  --color-status-border: #b8d6f3;
+
   --radius-card: 8px;
-  --radius-badge: 4px;
-  --radius-btn: 6px;
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08);
-  --font-size-title: 14px;
+  --radius-badge: 999px;
+  --radius-btn: 999px;
+  --radius-field: 4px;
+
+  --font-size-title: 15px;
   --font-size-meta: 12px;
   --font-size-badge: 11px;
+
+  --font-stack: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", "Fira Sans", Ubuntu, Oxygen, "Oxygen Sans", Cantarell,
+    "Droid Sans", sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-bg: #1a1a2e;
-    --color-bg-header: #16213e;
-    --color-bg-card: #1e2a3a;
-    --color-bg-card-hover: #243447;
-    --color-bg-controls: #16213e;
-    --color-border: #374151;
-    --color-border-card: #2d3748;
-    --color-text-primary: #f3f4f6;
-    --color-text-secondary: #9ca3af;
-    --color-text-muted: #6b7280;
-    --color-accent: #60a5fa;
-    --color-accent-hover: #93c5fd;
-    --color-badge-early: #6ee7b7;
-    --color-badge-early-bg: #064e3b;
-    --color-badge-easy: #93c5fd;
-    --color-badge-easy-bg: #1e3a5f;
-    --color-badge-viewed: #d1d5db;
-    --color-badge-viewed-bg: #374151;
-    --color-badge-applied: #c4b5fd;
-    --color-badge-applied-bg: #2e1065;
-    --color-posted: #60a5fa;
-    --color-status-bg: #1c1400;
-    --color-status-border: #78350f;
+    --color-bg: #000000;
+    --color-bg-header: #1b1f23;
+    --color-bg-card: #1b1f23;
+    --color-bg-card-hover: #232a31;
+    --color-bg-controls: #1b1f23;
+    --color-bg-inset: #38434f;
+
+    --color-border: rgba(255, 255, 255, 0.2);
+    --color-border-card: rgba(255, 255, 255, 0.15);
+    --color-divider: rgba(255, 255, 255, 0.1);
+
+    --color-text-primary: rgba(255, 255, 255, 0.9);
+    --color-text-secondary: rgba(255, 255, 255, 0.6);
+    --color-text-muted: rgba(255, 255, 255, 0.45);
+
+    --color-accent: #71b7fb;
+    --color-accent-hover: #a8d3fd;
+    --color-accent-tint: rgba(113, 183, 251, 0.14);
+    --color-success: #7fc15e;
+    --color-success-hover: #a3d68a;
+    --color-success-tint: rgba(127, 193, 94, 0.16);
+
+    --color-badge-early: #7fc15e;
+    --color-badge-early-bg: rgba(127, 193, 94, 0.16);
+    --color-badge-easy: #71b7fb;
+    --color-badge-easy-bg: rgba(113, 183, 251, 0.16);
+    --color-badge-viewed: #b6c2cf;
+    --color-badge-viewed-bg: rgba(255, 255, 255, 0.1);
+    --color-badge-applied: #cdb4f0;
+    --color-badge-applied-bg: rgba(160, 120, 220, 0.2);
+    --color-posted: #71b7fb;
+
+    --color-status-bg: rgba(113, 183, 251, 0.12);
+    --color-status-border: rgba(113, 183, 251, 0.3);
   }
 }
 
-/* ── Reset & Base ────────────────────────────────────────────────────────────── */
+/* ── Reset & base ───────────────────────────────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -73,15 +109,14 @@
 }
 
 html, body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 13px;
+  font-family: var(--font-stack);
+  font-size: 14px;
   background: var(--color-bg);
   color: var(--color-text-primary);
   line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* ── Side panel sizing ───────────────────────────────────────────────────────── */
-/* Chrome renders the side panel in a fixed-width sidebar — we fill it fully.    */
 body {
   width: 100%;
   height: 100vh;
@@ -97,14 +132,14 @@ body {
   overflow: hidden;
 }
 
-/* ── Sticky Header ───────────────────────────────────────────────────────────── */
+/* ── Header ─────────────────────────────────────────────────────────────────── */
 .header {
   position: sticky;
   top: 0;
   z-index: 10;
   background: var(--color-bg-header);
-  border-bottom: 1px solid var(--color-border);
-  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--color-divider);
+  padding: 12px 16px 12px;
   flex-shrink: 0;
 }
 
@@ -113,54 +148,59 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 4px;
-}
-
-.header-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  white-space: nowrap;
+  margin-bottom: 6px;
 }
 
 .header-actions {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
 .job-count {
-  font-size: var(--font-size-meta);
-  color: var(--color-text-secondary);
-  margin-bottom: 2px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
 }
 
-.search-context {
-  font-size: var(--font-size-meta);
-  color: var(--color-text-secondary);
+.job-count:empty,
+.notice:empty {
+  display: none;
 }
 
 .notice {
   font-size: var(--font-size-meta);
   color: var(--color-text-secondary);
-  margin-top: 4px;
+  margin-top: 6px;
+  padding-left: 8px;
+  border-left: 2px solid var(--color-status-border);
 }
 
-/* ── Buttons ─────────────────────────────────────────────────────────────────── */
+/* ── Buttons (LinkedIn pill style) ──────────────────────────────────────────── */
 button {
   cursor: pointer;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg);
-  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  min-height: 28px;
+  padding: 0 14px;
+  border: 1px solid var(--color-accent);
+  background: transparent;
+  color: var(--color-accent);
   border-radius: var(--radius-btn);
-  padding: 4px 10px;
-  font-size: var(--font-size-meta);
-  line-height: 1.4;
-  transition: background 0.1s;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease,
+    color 0.15s ease;
 }
 
 button:hover {
-  background: var(--color-bg-card-hover);
+  background: var(--color-accent-tint);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+  color: var(--color-accent-hover);
+}
+
+button:active {
+  box-shadow: inset 0 0 0 2px var(--color-accent);
 }
 
 button:focus-visible {
@@ -168,101 +208,162 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
+/* Primary: filled blue */
 #btn-refresh {
   background: var(--color-accent);
-  color: #fff;
   border-color: var(--color-accent);
+  color: #ffffff;
 }
 
 #btn-refresh:hover {
   background: var(--color-accent-hover);
   border-color: var(--color-accent-hover);
+  box-shadow: none;
+  color: #ffffff;
 }
 
+@media (prefers-color-scheme: dark) {
+  #btn-refresh,
+  #btn-refresh:hover {
+    color: #000000;
+  }
+}
+
+/* Secondary: outlined green */
 #btn-fetch-more {
-  background: #057642;
-  color: #fff;
-  border-color: #057642;
+  background: transparent;
+  border-color: var(--color-success);
+  color: var(--color-success);
 }
 
 #btn-fetch-more:hover {
-  background: #046237;
-  border-color: #046237;
+  background: var(--color-success-tint);
+  border-color: var(--color-success);
+  box-shadow: inset 0 0 0 1px var(--color-success);
+  color: var(--color-success-hover);
 }
 
-button:disabled {
-  opacity: 0.6;
+button:disabled,
+button:disabled:hover {
+  opacity: 0.55;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
-/* ── Controls ────────────────────────────────────────────────────────────────── */
+/* ── Controls ───────────────────────────────────────────────────────────────── */
 .controls {
   background: var(--color-bg-controls);
-  border-bottom: 1px solid var(--color-border);
-  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-divider);
+  padding: 12px 16px;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   flex-shrink: 0;
 }
 
-.controls label[for="sort-select"] {
-  font-size: var(--font-size-meta);
-  color: var(--color-text-secondary);
-  font-weight: 500;
-}
 
-select, input[type="text"] {
-  width: 100%;
-  padding: 5px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-btn);
-  background: var(--color-bg);
+select,
+input[type="text"] {
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-field);
+  background: var(--color-bg-inset);
   color: var(--color-text-primary);
-  font-size: var(--font-size-meta);
+  font-size: 13px;
   font-family: inherit;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-select:focus, input[type="text"]:focus {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 0;
+select {
+  flex: 1 1 0;
+  cursor: pointer;
+}
+
+input[type="text"] {
+  flex: 1 1 100%;
+}
+
+input[type="text"]::placeholder {
+  color: var(--color-text-secondary);
+}
+
+select:hover,
+input[type="text"]:hover {
+  border-color: var(--color-border);
+}
+
+select:focus,
+input[type="text"]:focus {
+  outline: none;
   border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
 }
 
+/* Checkboxes become compact filter chips on a single wrapping row */
 .checkbox-label {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-btn);
   font-size: var(--font-size-meta);
-  color: var(--color-text-primary);
+  font-weight: 600;
+  color: var(--color-text-secondary);
   cursor: pointer;
   user-select: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.checkbox-label:hover {
+  background: var(--color-bg-card-hover);
+  border-color: var(--color-text-muted);
+}
+
+.checkbox-label:has(input:checked) {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  .checkbox-label:has(input:checked) {
+    color: #000000;
+  }
 }
 
 .checkbox-label input[type="checkbox"] {
   accent-color: var(--color-accent);
   cursor: pointer;
+  width: 13px;
+  height: 13px;
 }
 
-.checkbox-label input[type="checkbox"]:focus-visible {
+.checkbox-label:has(input:focus-visible) {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
-/* ── Status Area ─────────────────────────────────────────────────────────────── */
+/* ── Status banner ──────────────────────────────────────────────────────────── */
 .status {
-  padding: 8px 12px;
+  padding: 10px 16px;
   font-size: var(--font-size-meta);
-  color: var(--color-text-secondary);
-  flex-shrink: 0;
+  line-height: 1.45;
+  color: var(--color-text-primary);
   background: var(--color-status-bg);
+  border-bottom: 1px solid var(--color-status-border);
+  flex-shrink: 0;
 }
 
 .status:empty {
   display: none;
 }
 
-/* ── Job List ────────────────────────────────────────────────────────────────── */
+/* ── Job list (LinkedIn canvas) ─────────────────────────────────────────────── */
 .job-list {
   flex: 1;
   overflow-y: auto;
@@ -270,37 +371,36 @@ select:focus, input[type="text"]:focus {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  background: var(--color-bg);
 }
 
-/* ── Job Card ────────────────────────────────────────────────────────────────── */
+/* ── Job card ───────────────────────────────────────────────────────────────── */
 .job-card {
   background: var(--color-bg-card);
   border: 1px solid var(--color-border-card);
   border-radius: var(--radius-card);
-  padding: 10px 12px;
-  box-shadow: var(--shadow-card);
+  padding: 12px 16px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
+  transition: background-color 0.15s ease;
 }
 
 .job-card:hover {
   background: var(--color-bg-card-hover);
-  border-color: var(--color-border);
 }
 
 .job-title {
   font-size: var(--font-size-title);
-  font-weight: 700;
+  font-weight: 600;
+  line-height: 1.3;
   color: var(--color-accent);
   overflow-wrap: anywhere;
   word-break: break-word;
   text-decoration: none;
-  cursor: pointer;
 }
 
 .job-title:hover {
-  text-decoration: underline;
   color: var(--color-accent-hover);
 }
 
@@ -311,15 +411,15 @@ select:focus, input[type="text"]:focus {
 }
 
 .job-subtitle {
-  font-size: var(--font-size-meta);
-  color: var(--color-text-secondary);
+  font-size: 13px;
+  color: var(--color-text-primary);
   overflow-wrap: anywhere;
 }
 
 .job-posted {
   font-size: var(--font-size-meta);
-  color: var(--color-posted);
-  font-weight: 500;
+  color: var(--color-success);
+  font-weight: 600;
 }
 
 .job-posted-muted {
@@ -328,21 +428,22 @@ select:focus, input[type="text"]:focus {
   font-style: italic;
 }
 
-/* ── Badges ──────────────────────────────────────────────────────────────────── */
+/* ── Badges ─────────────────────────────────────────────────────────────────── */
 .badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 2px;
+  gap: 6px;
+  margin-top: 4px;
 }
 
 .badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   font-size: var(--font-size-badge);
   font-weight: 600;
-  padding: 2px 6px;
+  padding: 2px 8px;
   border-radius: var(--radius-badge);
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 .badge-early {
@@ -365,29 +466,31 @@ select:focus, input[type="text"]:focus {
   background: var(--color-badge-applied-bg);
 }
 
-/* ── Job Footer ──────────────────────────────────────────────────────────────── */
+/* ── Job footer ─────────────────────────────────────────────────────────────── */
 .job-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 4px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-divider);
   gap: 8px;
 }
 
 .job-id {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--color-text-muted);
 }
 
 .btn-open {
-  font-size: 11px;
-  padding: 3px 8px;
-  border-color: var(--color-border);
+  font-size: 12px;
+  min-height: 26px;
+  padding: 0 12px;
 }
 
-/* ── Partial Times Notice ────────────────────────────────────────────────────── */
+/* ── Partial times notice ───────────────────────────────────────────────────── */
 .partial-notice {
-  padding: 6px 12px;
+  padding: 8px 16px;
   font-size: var(--font-size-meta);
   color: var(--color-text-secondary);
   background: var(--color-status-bg);
@@ -395,55 +498,58 @@ select:focus, input[type="text"]:focus {
   flex-shrink: 0;
 }
 
-/* ── Clear Filters Button ────────────────────────────────────────────────────── */
-.btn-clear-filters {
-  margin-top: 6px;
-  display: inline-block;
-}
-
-/* ── Crawl Progress ──────────────────────────────────────────────────────────── */
+/* ── Crawl progress ─────────────────────────────────────────────────────────── */
 .crawl-progress-container {
-  margin-top: 6px;
+  margin-top: 8px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 
 .crawl-progress-bar {
   width: 100%;
-  height: 5px;
-  background: var(--color-border);
-  border-radius: 3px;
+  height: 4px;
+  background: var(--color-divider);
+  border-radius: 2px;
   overflow: hidden;
 }
 
 .crawl-progress-fill {
   height: 100%;
   width: 0%;
-  background: var(--color-accent);
-  border-radius: 3px;
+  background: var(--color-success);
+  border-radius: 2px;
   transition: width 0.3s ease;
 }
 
 .crawl-progress-label {
   font-size: 11px;
   color: var(--color-text-secondary);
-  font-weight: 500;
 }
 
-/* ── Scrollbar ───────────────────────────────────────────────────────────────── */
+/* ── Scrollbar ──────────────────────────────────────────────────────────────── */
+.job-list {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
 .job-list::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 .job-list::-webkit-scrollbar-track {
   background: transparent;
 }
 .job-list::-webkit-scrollbar-thumb {
   background: var(--color-border);
-  border-radius: 3px;
+  border-radius: 4px;
 }
 .job-list::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-muted);
 }
 
-
+/* ── Reduced motion ─────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition: none !important;
+  }
+}

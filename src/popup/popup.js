@@ -12,7 +12,7 @@
  * - Displays a "Fetch More" button if more pages exist.
  *
  * Accidental panel reload / reopen:
- * - Restores crawled jobs and state from chrome.storage.local without re-crawling.
+ * - Restores crawled jobs and state from chrome.storage.session without re-crawling.
  *
  * NEVER uses innerHTML — all DOM construction uses createElement + textContent.
  */
@@ -58,11 +58,9 @@
   const $ = id => document.getElementById(id);
 
   const elJobCount             = $('job-count');
-  const elSearchCtx            = $('search-context');
   const elNotice               = $('notice');
   const elStatus               = $('status');
   const elJobList              = $('job-list');
-  const elSortSelect           = $('sort-select');
   const elFilterQuery          = $('filter-query');
   const elHideViewed           = $('filter-hide-viewed');
   const elHideApplied          = $('filter-hide-applied');
@@ -73,6 +71,7 @@
   const elCrawlProgress        = $('crawl-progress-container');
   const elCrawlProgressFill    = $('crawl-progress-fill');
   const elCrawlProgressLabel   = $('crawl-progress-label');
+  const controls               = $('controls');
 
   // ── UI helpers ─────────────────────────────────────────────────────────────
 
@@ -94,20 +93,11 @@
       : `${shown} of ${total} job${total === 1 ? '' : 's'}`;
   }
 
-  function renderSearchContext(ctx) {
-    if (!elSearchCtx) return;
-    if (!ctx) { elSearchCtx.textContent = ''; return; }
-    const parts = [];
-    if (ctx.keywords)        parts.push(`"${ctx.keywords}"`);
-    if (ctx.location)        parts.push(ctx.location);
-    if (ctx.dateFilterLabel) parts.push(ctx.dateFilterLabel);
-    elSearchCtx.textContent = parts.join(' · ');
-  }
 
   function setBtnRefreshBusy(busy) {
     if (!elBtnRefresh) return;
     elBtnRefresh.disabled = busy;
-    elBtnRefresh.textContent = busy ? 'Crawling…' : 'Refresh';
+    elBtnRefresh.textContent = busy ? 'Fetching…' : 'Refresh';
   }
 
   function setBtnFetchMoreBusy(busy) {
@@ -151,35 +141,37 @@
   }
 
   function showInitialState() {
+    elBtnRefresh.textContent = "Start";
+    controls.style.display = "none";
     clearJobList();
     setJobCount(0, 0);
-    renderSearchContext(null);
     setNotice('');
     updateFetchMoreVisibility(false);
     hideProgressUI();
-    setStatus('Click "Refresh" on a LinkedIn job search page with the "Past 24 hours" filter applied to start fetching jobs.');
+    setStatus('Click "Start" on LinkedIn job search page with the "Past 24 hours" filter applied to start fetching jobs.');
   }
 
   function showState(state, detail) {
     clearJobList();
     setJobCount(0, 0);
-    renderSearchContext(null);
     setNotice('');
     updateFetchMoreVisibility(false);
     hideProgressUI();
 
     switch (state) {
       case 'no-cards':
-        setStatus('No job cards found on this page. Open a LinkedIn job search results page and try again.');
+        setStatus('No jobs found on this page. Open a LinkedIn job search results page and try again.');
         break;
       case 'unsupported':
-        setStatus('Open a LinkedIn jobs search results page (linkedin.com/jobs/search-results) with the "Past 24 hours" filter to use this extension.');
+        setStatus('Open LinkedIn jobs search results page with the "Past 24 hours" filter to use this extension.');
         break;
       case 'unreachable':
-        setStatus(`Unable to read the current tab. Reload the LinkedIn page and try again.${detail ? ' (' + detail + ')' : ''}`);
+        setStatus(`Unable to read the current tab. Reload the LinkedIn page and try again.`);
+        console.error(`setstatus error : ${detail ? ' (' + detail + ')' : ''}`);
         break;
       default:
-        setStatus(detail || 'Unknown state.');
+        setStatus(`Unable to read the current tab. Reload the LinkedIn page and try again.`);
+        console.error(`setstatus error : ${detail}`)
     }
   }
 
@@ -187,7 +179,7 @@
 
   async function persistJobsAndState() {
     return new Promise(resolve => {
-      chrome.storage.local.set({
+      chrome.storage.session.set({
         [STORAGE_KEY_JOBS]: allJobs,
         [STORAGE_KEY_STATE]: {
           pagesCompleted: crawlState.pagesCompleted,
@@ -225,20 +217,11 @@
     const validUrl = job.url && VALID_URL_RE.test(job.url) ? job.url : null;
 
     let titleEl;
-    if (validUrl) {
-      titleEl = document.createElement('a');
-      titleEl.className = 'job-title';
-      titleEl.textContent = job.title;
-      titleEl.href = '#';
-      titleEl.addEventListener('click', function (e) {
-        e.preventDefault();
-        chrome.tabs.create({ url: validUrl });
-      });
-    } else {
-      titleEl = document.createElement('span');
-      titleEl.className = 'job-title';
-      titleEl.textContent = job.title;
-    }
+    
+    titleEl = document.createElement('span');
+    titleEl.className = 'job-title';
+    titleEl.textContent = job.title;
+  
     card.appendChild(titleEl);
 
     // ── Subtitle ─────────────────────────────────────────────────────────────
@@ -255,7 +238,7 @@
     if (job.ageMinutes != null) {
       postedEl.className = 'job-posted';
       const label = job.postedText || `${job.ageMinutes} min ago`;
-      postedEl.textContent = `${label} (approx.)`;
+      postedEl.textContent = `${label}`;
     } else if (job.applied === true) {
       postedEl.className = 'job-posted-muted';
       postedEl.textContent = 'Applied — LinkedIn hides the posting time';
@@ -301,7 +284,7 @@
     if (validUrl) {
       const openBtn = document.createElement('button');
       openBtn.className = 'btn-open';
-      openBtn.textContent = 'Open on LinkedIn';
+      openBtn.textContent = 'Open';
       openBtn.addEventListener('click', function () {
         chrome.tabs.create({ url: validUrl });
       });
@@ -316,7 +299,7 @@
   // ── Render ─────────────────────────────────────────────────────────────────
 
   function renderJobs() {
-    const mode          = elSortSelect ? elSortSelect.value : 'newest';
+    const mode          = 'newest';
     const query         = elFilterQuery ? elFilterQuery.value : '';
     const hideViewed    = elHideViewed ? elHideViewed.checked : false;
     const hideApplied   = elHideApplied ? elHideApplied.checked : false;
@@ -329,29 +312,22 @@
     const shown = filtered.length;
 
     setJobCount(shown, total);
-    renderSearchContext(searchContext);
 
     // Show Easy Apply checkbox only when relevant
     const hasEasyApply = allJobs.some(j => j.easyApply === true);
     if (elEasyLabel) elEasyLabel.style.display = hasEasyApply ? '' : 'none';
-
+    controls.style.display = "flex";
     // Clear list
     clearJobList();
 
     if (total > 0 && shown === 0) {
       setStatus('No jobs match the current filters.');
-      const clearBtn = document.createElement('button');
-      clearBtn.className = 'btn-clear-filters';
-      clearBtn.textContent = 'Clear filters';
-      clearBtn.addEventListener('click', function () {
-        if (elFilterQuery) elFilterQuery.value = '';
-        if (elHideViewed) elHideViewed.checked = false;
-        if (elHideApplied) elHideApplied.checked = false;
-        if (elEasyApply) elEasyApply.checked = false;
-        renderJobs();
-      });
-      if (elStatus) elStatus.appendChild(clearBtn);
       return;
+    }
+    if (total == shown){
+      setStatus('');
+    } else {
+      setStatus(`Filtered ${shown} jobs from ${total} jobs.`);
     }
 
     // Partial times notice
@@ -530,13 +506,12 @@
     }
 
     // 1. Clear storage & in-memory jobs
-    await chrome.storage.local.remove([STORAGE_KEY_JOBS, STORAGE_KEY_STATE]);
+    await chrome.storage.session.remove([STORAGE_KEY_JOBS, STORAGE_KEY_STATE]);
     allJobs = [];
     searchContext = null;
     crawlState = { pagesCompleted: 0, moreAvailable: false };
     clearJobList();
     setJobCount(0, 0);
-    renderSearchContext(null);
     setNotice('');
     updateFetchMoreVisibility(false);
 
@@ -649,7 +624,6 @@
     elBtnFetchMore.addEventListener('click', handleFetchMore);
   }
 
-  if (elSortSelect) elSortSelect.addEventListener('change', renderJobs);
   if (elFilterQuery) elFilterQuery.addEventListener('input', renderJobs);
   if (elHideViewed) elHideViewed.addEventListener('change', renderJobs);
   if (elHideApplied) elHideApplied.addEventListener('change', renderJobs);
@@ -662,11 +636,13 @@
     chrome.runtime.onMessage.addListener(handleRuntimeMessage);
 
     // Restore from storage on initial open or accidental refresh
-    chrome.storage.local.get([STORAGE_KEY_JOBS, STORAGE_KEY_STATE], function (result) {
+    chrome.storage.session.get([STORAGE_KEY_JOBS, STORAGE_KEY_STATE], function (result) {
       const savedJobs = result[STORAGE_KEY_JOBS];
       const savedState = result[STORAGE_KEY_STATE];
 
       if (Array.isArray(savedJobs) && savedJobs.length > 0) {
+        elBtnRefresh.textContent = "Refresh";
+
         allJobs = savedJobs;
         crawlState = savedState || { pagesCompleted: 1, moreAvailable: false };
         searchContext = crawlState.searchContext || null;
