@@ -1,3 +1,4 @@
+
 {
   "manifest_version": 3,
   "name": "LinkedIn Job Sorter",
@@ -7,9 +8,6 @@
   "host_permissions": ["https://www.linkedin.com/*"],
   "action": {
     "default_title": "LinkedIn Job Sorter"
-  },
-  "side_panel": {
-    "default_path": "src/popup/popup.html"
   },
   "background": {
     "service_worker": "src/background/service-worker.js"
