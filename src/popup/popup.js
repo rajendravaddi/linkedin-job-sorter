@@ -71,6 +71,7 @@
   const elCrawlProgress        = $('crawl-progress-container');
   const elCrawlProgressFill    = $('crawl-progress-fill');
   const elCrawlProgressLabel   = $('crawl-progress-label');
+  const controls               = $('controls');
 
   // ── UI helpers ─────────────────────────────────────────────────────────────
 
@@ -141,12 +142,13 @@
 
   function showInitialState() {
     elBtnRefresh.textContent = "Start";
+    controls.style.display = "none";
     clearJobList();
     setJobCount(0, 0);
     setNotice('');
     updateFetchMoreVisibility(false);
     hideProgressUI();
-    setStatus('Click "Start" on a LinkedIn job search page with the "Past 24 hours" filter applied to start fetching jobs.');
+    setStatus('Click "Start" on LinkedIn job search page with the "Past 24 hours" filter applied to start fetching jobs.');
   }
 
   function showState(state, detail) {
@@ -158,16 +160,18 @@
 
     switch (state) {
       case 'no-cards':
-        setStatus('No job cards found on this page. Open a LinkedIn job search results page and try again.');
+        setStatus('No jobs found on this page. Open a LinkedIn job search results page and try again.');
         break;
       case 'unsupported':
-        setStatus('Open a LinkedIn jobs search results page (linkedin.com/jobs/search-results) with the "Past 24 hours" filter to use this extension.');
+        setStatus('Open LinkedIn jobs search results page with the "Past 24 hours" filter to use this extension.');
         break;
       case 'unreachable':
-        setStatus(`Unable to read the current tab. Reload the LinkedIn page and try again.${detail ? ' (' + detail + ')' : ''}`);
+        setStatus(`Unable to read the current tab. Reload the LinkedIn page and try again.`);
+        console.error(`setstatus error : ${detail ? ' (' + detail + ')' : ''}`);
         break;
       default:
-        setStatus(detail || 'Unknown state.');
+        setStatus(`Unable to read the current tab. Reload the LinkedIn page and try again.`);
+        console.error(`setstatus error : ${detail}`)
     }
   }
 
@@ -234,7 +238,7 @@
     if (job.ageMinutes != null) {
       postedEl.className = 'job-posted';
       const label = job.postedText || `${job.ageMinutes} min ago`;
-      postedEl.textContent = `${label} (approx.)`;
+      postedEl.textContent = `${label}`;
     } else if (job.applied === true) {
       postedEl.className = 'job-posted-muted';
       postedEl.textContent = 'Applied — LinkedIn hides the posting time';
@@ -312,24 +316,18 @@
     // Show Easy Apply checkbox only when relevant
     const hasEasyApply = allJobs.some(j => j.easyApply === true);
     if (elEasyLabel) elEasyLabel.style.display = hasEasyApply ? '' : 'none';
-
+    controls.style.display = "flex";
     // Clear list
     clearJobList();
 
     if (total > 0 && shown === 0) {
       setStatus('No jobs match the current filters.');
-      const clearBtn = document.createElement('button');
-      clearBtn.className = 'btn-clear-filters';
-      clearBtn.textContent = 'Clear filters';
-      clearBtn.addEventListener('click', function () {
-        if (elFilterQuery) elFilterQuery.value = '';
-        if (elHideViewed) elHideViewed.checked = false;
-        if (elHideApplied) elHideApplied.checked = false;
-        if (elEasyApply) elEasyApply.checked = false;
-        renderJobs();
-      });
-      if (elStatus) elStatus.appendChild(clearBtn);
       return;
+    }
+    if (total == shown){
+      setStatus('');
+    } else {
+      setStatus(`Filtered ${shown} jobs from ${total} jobs.`);
     }
 
     // Partial times notice

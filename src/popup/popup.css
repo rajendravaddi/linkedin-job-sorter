@@ -498,12 +498,6 @@ input[type="text"]:focus {
   flex-shrink: 0;
 }
 
-/* ── Clear filters button ───────────────────────────────────────────────────── */
-.btn-clear-filters {
-  margin-top: 8px;
-  display: inline-block;
-}
-
 /* ── Crawl progress ─────────────────────────────────────────────────────────── */
 .crawl-progress-container {
   margin-top: 8px;
