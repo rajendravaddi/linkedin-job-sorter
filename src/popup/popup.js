@@ -12,7 +12,7 @@
  * - Displays a "Fetch More" button if more pages exist.
  *
  * Accidental panel reload / reopen:
- * - Restores crawled jobs and state from chrome.storage.local without re-crawling.
+ * - Restores crawled jobs and state from chrome.storage.session without re-crawling.
  *
  * NEVER uses innerHTML — all DOM construction uses createElement + textContent.
  */
@@ -175,7 +175,7 @@
 
   async function persistJobsAndState() {
     return new Promise(resolve => {
-      chrome.storage.local.set({
+      chrome.storage.session.set({
         [STORAGE_KEY_JOBS]: allJobs,
         [STORAGE_KEY_STATE]: {
           pagesCompleted: crawlState.pagesCompleted,
@@ -508,7 +508,7 @@
     }
 
     // 1. Clear storage & in-memory jobs
-    await chrome.storage.local.remove([STORAGE_KEY_JOBS, STORAGE_KEY_STATE]);
+    await chrome.storage.session.remove([STORAGE_KEY_JOBS, STORAGE_KEY_STATE]);
     allJobs = [];
     searchContext = null;
     crawlState = { pagesCompleted: 0, moreAvailable: false };
@@ -638,7 +638,7 @@
     chrome.runtime.onMessage.addListener(handleRuntimeMessage);
 
     // Restore from storage on initial open or accidental refresh
-    chrome.storage.local.get([STORAGE_KEY_JOBS, STORAGE_KEY_STATE], function (result) {
+    chrome.storage.session.get([STORAGE_KEY_JOBS, STORAGE_KEY_STATE], function (result) {
       const savedJobs = result[STORAGE_KEY_JOBS];
       const savedState = result[STORAGE_KEY_STATE];
 
