@@ -2,12 +2,22 @@
 {
   "manifest_version": 3,
   "name": "LinkedIn Job Sorter",
-  "version": "0.2.0",
-  "description": "Sorts the LinkedIn job results you are viewing by estimated posting age.",
+  "version": "1.0.0",
+  "description": "Sort LinkedIn job listings by posting time. Crawl multiple pages and display the newest opportunities first. Designed for desktop and laptop browsers.",
+  "icons": {
+    "16": "assets/icons/icon16.png",
+    "32": "assets/icons/icon32.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
+  },
   "permissions": ["scripting", "sidePanel", "tabs", "storage"],
   "host_permissions": ["https://www.linkedin.com/*"],
   "action": {
-    "default_title": "LinkedIn Job Sorter"
+    "default_title": "LinkedIn Job Sorter",
+    "default_icon": {
+      "16": "assets/icons/icon16.png",
+      "32": "assets/icons/icon32.png"
+    }
   },
   "background": {
     "service_worker": "src/background/service-worker.js"
