@@ -118,11 +118,11 @@ node -c src/**/*.js tests/**/*.js
 ## Basic Usage
 
 1. Open Chrome and navigate to LinkedIn Job Search:  
-   `https://www.linkedin.com/jobs/search/`
+   `https://www.linkedin.com/jobs/search-results/`
 2. Enter your desired job title/keyword and location.
 3. In LinkedIn's search filters, set the **Date posted** filter to **Past 24 hours**.
 4. Click the **LinkedIn Job Sorter** extension icon in your Chrome toolbar to open the Side Panel.
-5. Click **Refresh** to initiate multi-page crawling starting from page 1.
+5. Click **Start** to initiate multi-page crawling starting from page 1.
 6. As jobs load, watch the progress bar and live job count.
 7. If more than 10 pages exist, click **Fetch More** to crawl the next 10 pages.
 8. Filter the list by title or company, hide viewed/applied roles, or check "Easy Apply only".
@@ -144,8 +144,8 @@ node -c src/**/*.js tests/**/*.js
 
 For deeper technical details, development workflows, and project guidelines:
 
-- [Architecture & Design Specification](file:///home/rajendra-vaddi/Documents/Projects/linkedin-job-sorter/docs/ARCHITECTURE.md)
-- [Developer Guide & Release Packaging](file:///home/rajendra-vaddi/Documents/Projects/linkedin-job-sorter/docs/DEVELOPMENT.md)
-- [Privacy Policy & Data Handling](file:///home/rajendra-vaddi/Documents/Projects/linkedin-job-sorter/docs/PRIVACY.md)
-- [Changelog & Release Notes](file:///home/rajendra-vaddi/Documents/Projects/linkedin-job-sorter/docs/CHANGELOG.md)
-- [Contributing Guidelines](file:///home/rajendra-vaddi/Documents/Projects/linkedin-job-sorter/docs/CONTRIBUTING.md)
+- [Architecture & Design Specification](docs/ARCHITECTURE.md)
+- [Developer Guide & Release Packaging](docs/DEVELOPMENT.md)
+- [Privacy Policy & Data Handling](docs/PRIVACY.md)
+- [Changelog & Release Notes](docs/CHANGELOG.md)
+- [Contributing Guidelines](docs/CONTRIBUTING.md)
