@@ -89,11 +89,11 @@ All contributions must maintain our high bar of test coverage and code reliabili
 ## 4. Documentation Updates
 
 If your changes modify user-facing behavior, architectural contracts, or development workflows, you must update the corresponding documentation:
-- Update [`README.md`](file:///home/rajendra-vaddi/Documents/Projects/linkedin-job-sorter/README.md) for changes in user features or setup.
-- Update [`docs/ARCHITECTURE.md`](file:///home/rajendra-vaddi/Documents/Projects/linkedin-job-sorter/docs/ARCHITECTURE.md) for changes in message types, data models, or component interactions.
-- Update [`docs/DEVELOPMENT.md`](file:///home/rajendra-vaddi/Documents/Projects/linkedin-job-sorter/docs/DEVELOPMENT.md) for new development workflows or test scripts.
-- Update [`docs/PRIVACY.md`](file:///home/rajendra-vaddi/Documents/Projects/linkedin-job-sorter/docs/PRIVACY.md) if any changes affect data extraction, permissions, or storage.
-- Add an entry under `[Unreleased]` in [`docs/CHANGELOG.md`](file:///home/rajendra-vaddi/Documents/Projects/linkedin-job-sorter/docs/CHANGELOG.md).
+- Update [`README.md`](../README.md) for changes in user features or setup.
+- Update [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md) for changes in message types, data models, or component interactions.
+- Update [`docs/DEVELOPMENT.md`](./DEVELOPMENT.md) for new development workflows or test scripts.
+- Update [`docs/PRIVACY.md`](./PRIVACY.md) if any changes affect data extraction, permissions, or storage.
+- Add an entry under `[Unreleased]` in [`docs/CHANGELOG.md`](./CHANGELOG.md).
 
 ---
 
@@ -101,6 +101,6 @@ If your changes modify user-facing behavior, architectural contracts, or develop
 
 1. **Focused Changes**: Keep pull requests focused on a single responsibility or bug fix. Avoid mixing refactors with functional changes.
 2. **Clean Git History**: Write descriptive commit messages following standard conventions (e.g., `fix: extend crawler timeout during active loader state`).
-3. **Manual Verification**: Test your branch manually on a live LinkedIn job search session using the [Manual Testing Checklist](file:///home/rajendra-vaddi/Documents/Projects/linkedin-job-sorter/docs/DEVELOPMENT.md#7-manual-testing-checklist-on-linkedin).
+3. **Manual Verification**: Test your branch manually on a live LinkedIn job search session using the [Manual Testing Checklist](./DEVELOPMENT.md).
 4. **PR Description**: Include a clear explanation of what changed, why the change is necessary, and test results.
 
