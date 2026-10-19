@@ -1,16 +1,28 @@
+
 /**
  * src/background/service-worker.js
- *
- * Service worker for the LinkedIn Job Sorter extension.
- * - Opens the side panel when the extension toolbar icon is clicked.
- * - Logs install/update events for debugging.
  */
 
-// Open the side panel in the current tab whenever the toolbar icon is clicked.
-chrome.action.onClicked.addListener(function (tab) {
-  chrome.sidePanel.open({ tabId: tab.id });
+chrome.action.onClicked.addListener((tab) => {
+  if (tab.id == null) return;
+
+  // Configure this tab without awaiting the Promise.
+  chrome.sidePanel.setOptions({
+    tabId: tab.id,
+    path: "src/popup/popup.html",
+    enabled: true
+  }).catch((error) => {
+    console.error("[LJS] Failed to configure side panel:", error);
+  });
+
+  // Call immediately within the toolbar-click gesture.
+  chrome.sidePanel.open({
+    tabId: tab.id
+  }).catch((error) => {
+    console.error("[LJS] Failed to open side panel:", error);
+  });
 });
 
-chrome.runtime.onInstalled.addListener(function (details) {
-  console.debug('[LJS] Extension installed/updated:', details.reason);
+chrome.runtime.onInstalled.addListener((details) => {
+  console.debug("[LJS] Extension installed/updated:", details.reason);
 });
