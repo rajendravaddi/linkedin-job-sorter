@@ -42,7 +42,7 @@ linkedin-job-sorter/
 │   │   └── job-filter.js          # Filtering engine (text, hide-viewed, hide-applied, etc.)
 │   ├── popup/
 │   │   ├── popup.html             # Side panel HTML shell
-│   │   ├── popup.css              # Stylesheet (dark-mode, badge colors, sticky header)
+│   │   ├── popup.css              # Stylesheet (badge colors, sticky header)
 │   │   └── popup.js               # Side panel UI controller and event coordinator
 │   └── shared/
 │       └── messages.js            # Shared message types and error code constants (UMD)
@@ -72,46 +72,49 @@ linkedin-job-sorter/
 
 The system comprises four decoupled execution layers:
 
-```mermaid
-flowchart TD
-    subgraph BrowserAction["Browser Toolbar Action"]
-        UserClick["User clicks extension icon"]
-    end
+### Execution Layers
 
-    subgraph Background["Service Worker (src/background/service-worker.js)"]
-        SW["service-worker.js"]
-    end
+1. **Toolbar Action Layer (`chrome.action`)**:
+   - The user entry point in the browser interface. Clicking the extension icon triggers an event listener in the background service worker.
 
-    subgraph SidePanel["Side Panel UI (src/popup/popup.js)"]
-        UIInit["Initialize UI & restore session storage"]
-        UIRefresh["Handle 'Refresh' (page 1)"]
-        UIFetchMore["Handle 'Fetch More' (page N+1)"]
-        UIMsgListener["Runtime message listener (handleRuntimeMessage)"]
-        UIRender["Sort & Filter Engine (renderJobs)"]
-    end
+2. **Background Service Worker Layer (`src/background/service-worker.js`)**:
+   - Manages side panel configuration and tab assignment.
+   - Listens for `chrome.action.onClicked`, configures `chrome.sidePanel.setOptions` for the target tab, and calls `chrome.sidePanel.open` to launch the UI beside the active LinkedIn search tab.
 
-    subgraph LinkedInTab["Active LinkedIn Tab (https://www.linkedin.com/jobs/search...)"]
-        ContentScript["content-script.js (LJS_EXTRACT)"]
-        Crawler["crawler.js (runCrawl)"]
-        LinkedInDOM["LinkedIn Results DOM"]
-    end
+3. **Side Panel UI Layer (`src/popup/popup.js`, `popup.html`, `popup.css`)**:
+   - Operates in Chrome's native side pane.
+   - Manages local state (`allJobs`, `crawlState`, `searchContext`), user filters, and search inputs.
+   - Restores and persists data in `chrome.storage.session`.
+   - Dispatches start, continue, and stop commands to content scripts.
+   - Receives streaming progress messages, deduplicates listings, sorts by estimated age, and renders DOM elements safely without `innerHTML`.
 
-    UserClick -->|chrome.action.onClicked| SW
-    SW -->|chrome.sidePanel.open| SidePanel
+4. **Injected Content Script Layer (`src/content/`, `src/lib/`, `src/shared/`)**:
+   - Injected into LinkedIn web pages (`https://www.linkedin.com/*`).
+   - **`crawler.js`**: Drives automated pagination. Detects the Next button, monitors DOM loading spinners (`isLoadingStateActive`), waits for DOM changes, and streams extracted page data to the side panel.
+   - **`content-script.js`**: Responds to ad-hoc single-page extraction requests (`LJS_EXTRACT`).
+   - **Library Modules (`src/lib/`)**: Pure utility modules for card extraction, relative-time parsing, search context parsing, deduplication, sorting, and filtering.
 
-    UIRefresh -->|1. Reset start=0 URL| LinkedInTab
-    UIRefresh -->|2. LJS_CRAWL_START| Crawler
-    UIFetchMore -->|LJS_CRAWL_CONTINUE| Crawler
+### End-to-End Data Flow
 
-    Crawler -->|Extract cards via card-extractor.js| LinkedInDOM
-    Crawler -->|Click Next pagination button| LinkedInDOM
-    Crawler -->|Stream: LJS_CRAWL_PROGRESS| UIMsgListener
-    Crawler -->|Finish: LJS_CRAWL_COMPLETE| UIMsgListener
-    Crawler -->|Error: LJS_CRAWL_ERROR| UIMsgListener
+The end-to-end operational flow follows this sequence:
 
-    UIMsgListener -->|Save jobs to chrome.storage.session| SidePanel
-    UIMsgListener --> UIRender
-```
+1. **Activation**: The user clicks the extension icon in the Chrome toolbar. The service worker opens `src/popup/popup.html` in the native side panel docked beside the active tab.
+2. **Initialization**: The side panel checks `chrome.storage.session` for existing crawl data. If cached jobs exist, it restores and renders them immediately without re-crawling. If storage is empty, it displays an initial prompt to click "Refresh".
+3. **Crawl Initiation (Page 1 Reset)**:
+   - When the user clicks **Refresh**, the side panel clears `chrome.storage.session`.
+   - It validates that the active tab is on `/jobs/search` with the "Past 24 hours" filter applied (`f_TPR=r86400`).
+   - It rewrites the LinkedIn URL to `start=0` (page 1) using `chrome.tabs.update` and waits for page navigation to complete.
+   - Once settled, it injects content scripts (if not already present) and sends `LJS_CRAWL_START` with a batch limit of 10 pages.
+4. **Iterative Page Crawling**:
+   - The crawler in `crawler.js` waits for job cards to render (`waitForCards`).
+   - It extracts structured data from all visible cards via `card-extractor.js`.
+   - It streams extracted cards back to the side panel via `LJS_CRAWL_PROGRESS`.
+   - The crawler checks for a clickable Next button. If present and within the 10-page batch limit, it clicks Next, waits for cards to change (`clickNextAndWait`), and repeats.
+5. **Progress & Persistence**:
+   - Upon receiving `LJS_CRAWL_PROGRESS`, the side panel merges new jobs into `allJobs`, removes duplicates via `deduplicateJobs`, saves the updated list to `chrome.storage.session`, updates the progress bar, and re-renders the list.
+6. **Completion or Continuation**:
+   - When the 10-page limit is reached or the Next button disappears, the crawler sends `LJS_CRAWL_COMPLETE`.
+   - If more pages exist, the side panel displays the **Fetch More** button. Clicking it issues `LJS_CRAWL_CONTINUE` to crawl the next 10-page batch from where it left off.
 
 ### Component Responsibilities
 
@@ -131,42 +134,40 @@ flowchart TD
 
 ---
 
-## 4. Message Protocol and Flow
+All communication between the Side Panel and Content Scripts uses Chrome's runtime messaging (`chrome.tabs.sendMessage` to issue commands to the tab, and `chrome.runtime.sendMessage` to stream crawl events back to the side panel).
 
-All communication between the Side Panel and Content Scripts uses Chrome's runtime messaging (`chrome.tabs.sendMessage` and `chrome.runtime.sendMessage`):
+### Crawl Lifecycle and Messaging Sequence
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant SP as Side Panel (popup.js)
-    participant TAB as Tab / Browser
-    participant CR as Crawler (crawler.js)
-    participant DOM as LinkedIn DOM
+The multi-page crawl lifecycle proceeds through four structured phases:
 
-    Note over SP,DOM: User clicks "Refresh" (Fresh Crawl)
-    SP->>SP: Clear chrome.storage.session
-    SP->>TAB: Validate URL & Navigate to start=0
-    SP->>CR: chrome.tabs.sendMessage(LJS_CRAWL_START, maxPages: 10)
-    CR-->>SP: ACK { ok: true }
+#### Phase 1: Pre-Crawl Setup and Reset
+1. **Storage Purge**: The user clicks "Refresh". The side panel immediately clears `chrome.storage.session` (`ljs_jobs` and `ljs_crawl_state`) and resets in-memory listings.
+2. **Page & Filter Validation**: The side panel checks the active tab URL using `validateSearchUrl()`. It verifies that the path starts with `/jobs/search` and contains `f_TPR=r86400` ("Past 24 hours"). If invalid, it halts and reports an error message to the user.
+3. **Reset to Page 1**: The side panel forces the tab URL to `start=0` via `chrome.tabs.update`, resets UI buttons to busy state ("Crawling..."), and waits for the page load to settle (`navigateAndSettle`).
+4. **Script Injection & Crawl Command**: The side panel ensures content scripts are loaded (`ensureScriptsInjected`), then sends `chrome.tabs.sendMessage(tabId, { type: 'LJS_CRAWL_START', maxPages: 10 })`. The crawler returns `{ ok: true }` to acknowledge.
 
-    loop Each Page (up to 10 pages)
-        CR->>DOM: waitForCards(doc, 15000ms)
-        DOM-->>CR: Cards present
-        CR->>CR: extractJobsFromDocument() + deduplicateJobs()
-        CR->>SP: chrome.runtime.sendMessage(LJS_CRAWL_PROGRESS, { pageNumber, jobs, ... })
-        SP->>SP: Merge jobs, persist to session storage, render list
-        CR->>DOM: findNextButton()
-        alt Next button found & page < 10
-            CR->>DOM: clickNextAndWait()
-            DOM-->>CR: DOM signature changed
-        else Next button missing OR page == 10
-            Note over CR: Batch complete or last page
-        end
-    end
+#### Phase 2: Page-by-Page Extraction and Streaming Loop
+For each page up to the 10-page limit:
+1. **Wait for DOM Ready (`waitForCards`)**: The crawler polls the page up to 15 seconds (extending to 25 seconds if an active loader or skeleton is detected) until job cards are rendered.
+2. **Scrape and Deduplicate**: The crawler extracts all rendered cards using `extractJobsFromDocument()` and deduplicates them using `deduplicateJobs()`.
+3. **Stream Progress (`LJS_CRAWL_PROGRESS`)**: The crawler dispatches `LJS_CRAWL_PROGRESS` to the side panel with payload `{ pageNumber, pagesCrawledThisRun, jobs, stats, searchContext, hasNextPage, url }`.
+4. **Reactive Side Panel Update**: The side panel receives the progress message, merges the new jobs into its local array, removes duplicates, updates `chrome.storage.session`, updates the visual progress bar (`Page X of 10`), and calls `renderJobs()` to display the newest jobs immediately.
+5. **Next Page Transition (`clickNextAndWait`)**:
+   - The crawler looks for the Next button (`findNextButton()`).
+   - If the Next button is present and the 10-page batch limit is not yet reached, the crawler clicks the button and polls for DOM changes (comparing card signatures) and URL changes (`start=25`, `start=50`, etc.).
+   - If the Next button is missing or disabled, the crawler breaks the loop.
 
-    CR->>SP: chrome.runtime.sendMessage(LJS_CRAWL_COMPLETE, { pagesCrawled, moreAvailable, reason })
-    SP->>SP: Update UI, toggle Fetch More button, update status
-```
+#### Phase 3: Batch Completion Handshake
+1. **Completion Notification (`LJS_CRAWL_COMPLETE`)**:
+   - When the batch ends (10 pages reached, no more Next button, or timeout), the crawler sends `LJS_CRAWL_COMPLETE` with payload `{ pagesCrawled, moreAvailable, reason }`.
+2. **Side Panel State Finalization**:
+   - The side panel marks `isCrawling = false`, resets button labels, hides the progress bar, and saves the final state to `chrome.storage.session`.
+   - **More Pages Available**: If `moreAvailable: true` (`reason: 'PAGE_LIMIT_REACHED'` or `'NETWORK_TIMEOUT'`), the side panel displays the **Fetch More** button and updates the status to prompt the user.
+   - **All Pages Crawled**: If `moreAvailable: false` (`reason: 'NO_MORE_PAGES'`), the side panel hides the **Fetch More** button and displays a completion summary (e.g., *"Fetch complete! Fetched 237 jobs across 10 pages."*).
+
+#### Phase 4: Batch Continuation ("Fetch More")
+1. **Continuation Command**: When the user clicks **Fetch More**, the side panel calculates `nextPageNumber = pagesCompleted + 1`, marks the UI as busy, and sends `chrome.tabs.sendMessage(tabId, { type: 'LJS_CRAWL_CONTINUE', maxPages: 10, startPageNumber: nextPageNumber })`.
+2. **Initial Step**: The crawler sets `advanceFirst = true`, clicks the Next button to advance beyond the current page, and continues the extraction loop for the next 10-page batch without clearing previously collected jobs.
 
 ### Message Types Reference (`src/shared/messages.js`)
 
@@ -184,7 +185,7 @@ sequenceDiagram
 
 ## 5. Job Discovery and Extraction Algorithm
 
-Card extraction is implemented in [`src/lib/card-extractor.js`](file:///home/rajendra-vaddi/Documents/Projects/linkedin-job-sorter/src/lib/card-extractor.js) via `extractJobsFromDocument(doc, now)`.
+Card extraction is implemented in [`src/lib/card-extractor.js`](../src/lib/card-extractor.js) via `extractJobsFromDocument(doc, now)`.
 
 ### 5.1 Card Root Discovery
 LinkedIn's feed repeats custom attributes and container structures:
@@ -229,7 +230,7 @@ Real LinkedIn search result cards frequently lack standard `<a href="...">` anch
 
 ## 6. Posting-Time Parsing Engine
 
-The parsing logic in [`src/lib/posted-time-parser.js`](file:///home/rajendra-vaddi/Documents/Projects/linkedin-job-sorter/src/lib/posted-time-parser.js) parses English relative timestamps into integer minutes:
+The parsing logic in [`src/lib/posted-time-parser.js`](../src/lib/posted-time-parser.js) parses English relative timestamps into integer minutes:
 
 ### 6.1 Regular Expression
 ```javascript
@@ -279,7 +280,7 @@ When crawling across multiple pages, LinkedIn's live feed frequently duplicates 
 
 ## 8. Multi-Page Crawling Lifecycle
 
-The crawling loop in [`src/content/crawler.js`](file:///home/rajendra-vaddi/Documents/Projects/linkedin-job-sorter/src/content/crawler.js) operates as an asynchronous state machine:
+The crawling loop in [`src/content/crawler.js`](../src/content/crawler.js) operates as an asynchronous state machine:
 
 ### 8.1 Constraints & Enforcement
 1. **Target Page Validation**: Must be on `https://www.linkedin.com/jobs/search...`.
