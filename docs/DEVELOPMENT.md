@@ -122,7 +122,7 @@ Before submitting changes, perform this end-to-end verification on a live Linked
 ### Pre-requisites
 - [ ] Log in to LinkedIn on Chrome.
 - [ ] Navigate to a job search results URL, for example:  
-  `https://www.linkedin.com/jobs/search/?keywords=software%20engineer&f_TPR=r86400`
+  `https://www.linkedin.com/jobs/search-results/?keywords=software%20engineer&f_TPR=r86400`
 
 ### Test Scenarios
 1. **Side Panel Activation**:
@@ -131,7 +131,7 @@ Before submitting changes, perform this end-to-end verification on a live Linked
 2. **Search Results Page & Filter Validation**:
    - [ ] Navigate to `linkedin.com/feed/` and open the extension. Confirm status shows:  
      `"Please navigate to a LinkedIn job search page (linkedin.com/jobs/search-results) to fetch jobs."`
-   - [ ] Navigate to `linkedin.com/jobs/search/?keywords=engineer` (without date filter). Confirm status shows:  
+   - [ ] Navigate to `linkedin.com/jobs/search-results/?keywords=engineer` (without date filter). Confirm status shows:  
      `"Please apply the "Past 24 hours" date posted filter on LinkedIn before fetching jobs."`
 3. **Multi-Page Crawling**:
    - [ ] Apply the "Past 24 hours" filter and click **Refresh**.
