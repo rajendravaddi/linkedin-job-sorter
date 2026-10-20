@@ -12,6 +12,12 @@ When searching for jobs on LinkedIn, listings are often ordered by LinkedIn's pr
 
 ---
 
+## Demo
+
+https://github.com/user-attachments/assets/489249fe-bc82-4431-b850-320ab27e3534
+
+---
+
 ## Key Features
 
 - **Automated Multi-Page Crawling**: Automatically paginates through search results in controlled batches of up to 10 pages (~250 jobs) per crawl.
