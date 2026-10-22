@@ -1,4 +1,4 @@
-# LinkedIn Job Sorter
+# [LinkedIn Job Sorter](https://chrome.google.com/webstore/detail/ccmpcephdbopjcghjboekielkdlkplkm)
 
 A Chrome Extension (Manifest V3) that extracts, sorts, and filters LinkedIn job search results by **estimated posting age** — surfacing the freshest opportunities to the top instead of leaving them buried by LinkedIn's default ranking algorithms.
 
