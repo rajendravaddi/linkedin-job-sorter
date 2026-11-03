@@ -52,7 +52,7 @@
 
   /**
    * Validate whether a URL is a valid LinkedIn job search results page with
-   * the 'Past 24 hours' filter applied.
+   * a date filter of past week or less (e.g. past 24 hours or past week).
    *
    * @param {string|URL} urlInput - The URL string or URL object.
    * @returns {{ valid: boolean, code?: string, reason?: string }}
@@ -87,11 +87,25 @@
     }
 
     const fTPR = url.searchParams.get('f_TPR');
-    if (fTPR !== 'r86400') {
+    let validTimeFilter = false;
+
+    if (fTPR) {
+      const match = /^r(\d+)$/.exec(fTPR);
+      if (match) {
+        const seconds = parseInt(match[1], 10);
+        // Past week is 604800 seconds (7 * 24 * 3600).
+        // Allow any time less than or equal to past week (e.g. past hour r3600, past 24 hours r86400, past week r604800).
+        if (seconds > 0 && seconds <= 604800) {
+          validTimeFilter = true;
+        }
+      }
+    }
+
+    if (!validTimeFilter) {
       return {
         valid: false,
         code: 'FILTER_REQUIRED',
-        reason: 'Please apply the "Past 24 hours" date posted filter on LinkedIn before fetching jobs.',
+        reason: 'Please apply the "Past 24 hours" or "Past week" date posted filter on LinkedIn before fetching jobs.',
       };
     }
 
