@@ -12,15 +12,9 @@ When searching for jobs on LinkedIn, listings are often ordered by LinkedIn's pr
 
 ---
 
-## Promo
-
-https://github.com/user-attachments/assets/ec4e699e-b64c-4bb8-adaa-4df793709619
-
----
-
 ## Demo
 
-https://github.com/user-attachments/assets/489249fe-bc82-4431-b850-320ab27e3534
+https://github.com/user-attachments/assets/0cc56039-41ad-49f0-b11d-255a6755a49e
 
 ---
 
