@@ -6,7 +6,7 @@
  *
  * Refresh behaviour:
  * - Clears storage and resets to page 1 (start=0).
- * - Enforces the "Past 24 hours" filter.
+ * - Enforces the "Past 24 hours" or "Past week" filter.
  * - Crawls up to 10 pages.
  * - Displays a "Fetch More" button when more pages exist.
  *
@@ -51,6 +51,8 @@
   let searchContext = null;
   let linkedInTabId = null;
   let isCrawling = false;
+  let isFiltersExpanded = false;
+  let deselectedCompanies = new Set();
 
   let crawlState = {
     pagesCompleted: 0,
@@ -70,7 +72,16 @@
   const elHideViewed = $('filter-hide-viewed');
   const elHideApplied = $('filter-hide-applied');
   const elEasyApply = $('filter-easy-apply');
-  const elEasyLabel = $('easy-apply-label');
+  const elExternalSite = $('filter-external-site');
+
+  const elBtnToggleFilters = $('btn-toggle-filters');
+  const elCollapsibleFilters = $('collapsible-filters');
+  const elFilterArrow = $('filter-arrow');
+  const elActiveFilterBadge = $('active-filter-badge');
+
+  const elCompanyFilterList = $('company-filter-list');
+  const elBtnSelectAllCompanies = $('btn-select-all-companies');
+  const elBtnDeselectAllCompanies = $('btn-deselect-all-companies');
 
   const elBtnRefresh = $('btn-refresh');
   const elBtnFetchMore = $('btn-fetch-more');
@@ -199,8 +210,158 @@
     hideProgressUI();
 
     setStatus(
-      'Click "Start" on a LinkedIn job search page with the "Past 24 hours" filter applied to start fetching jobs.'
+      'Click "Start" on a LinkedIn job search page with the "Past 24 hours" or "Past week" filter applied to start fetching jobs.'
     );
+  }
+
+  // ── Collapsible Filters & Badges ───────────────────────────────────────────
+
+  function toggleFilters(forceState) {
+    isFiltersExpanded = typeof forceState === 'boolean' ? forceState : !isFiltersExpanded;
+
+    if (elCollapsibleFilters) {
+      elCollapsibleFilters.style.display = isFiltersExpanded ? 'flex' : 'none';
+    }
+
+    if (elBtnToggleFilters) {
+      elBtnToggleFilters.setAttribute('aria-expanded', isFiltersExpanded ? 'true' : 'false');
+    }
+
+    if (elFilterArrow) {
+      elFilterArrow.textContent = isFiltersExpanded ? '▲' : '▼';
+    }
+  }
+
+  function updateFilterBadge() {
+    if (!elActiveFilterBadge) return;
+
+    let count = 0;
+    const easyApply = elEasyApply ? elEasyApply.checked : false;
+    const externalSite = elExternalSite ? elExternalSite.checked : false;
+
+    // Apply process: only counts as active filter if either easyApply or externalSite is exclusively checked
+    if ((easyApply && !externalSite) || (!easyApply && externalSite)) {
+      count++;
+    }
+
+    if (elHideViewed && elHideViewed.checked) {
+      count++;
+    }
+
+    if (elHideApplied && elHideApplied.checked) {
+      count++;
+    }
+
+    if (deselectedCompanies.size > 0) {
+      count++;
+    }
+
+    if (count > 0) {
+      elActiveFilterBadge.textContent = String(count);
+      elActiveFilterBadge.style.display = 'inline-flex';
+    } else {
+      elActiveFilterBadge.textContent = '0';
+      elActiveFilterBadge.style.display = 'none';
+    }
+  }
+
+  function updateCompanyFilterList() {
+    if (!elCompanyFilterList) return;
+
+    const scrollPos = elCompanyFilterList.scrollTop;
+
+    while (elCompanyFilterList.firstChild) {
+      elCompanyFilterList.removeChild(elCompanyFilterList.firstChild);
+    }
+
+    if (allJobs.length === 0) {
+      const emptyEl = document.createElement('div');
+      emptyEl.className = 'company-empty-msg';
+      emptyEl.textContent = 'No companies loaded yet';
+      elCompanyFilterList.appendChild(emptyEl);
+      return;
+    }
+
+    // Count jobs per company
+    const counts = new Map();
+    for (const job of allJobs) {
+      const name = (job.company && job.company.trim()) ? job.company.trim() : 'Unknown Company';
+      counts.set(name, (counts.get(name) || 0) + 1);
+    }
+
+    // Sort companies alphabetically
+    const sortedCompanies = Array.from(counts.keys()).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: 'base' })
+    );
+
+    for (const company of sortedCompanies) {
+      const count = counts.get(company);
+
+      const label = document.createElement('label');
+      label.className = 'company-checkbox-label';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = !deselectedCompanies.has(company);
+
+      checkbox.addEventListener('change', function () {
+        if (checkbox.checked) {
+          deselectedCompanies.delete(company);
+        } else {
+          deselectedCompanies.add(company);
+        }
+
+        updateFilterBadge();
+        renderJobs();
+        void persistJobsAndState();
+      });
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'company-name';
+      nameSpan.textContent = company;
+      nameSpan.title = company;
+
+      const countSpan = document.createElement('span');
+      countSpan.className = 'company-count';
+      countSpan.textContent = `(${count})`;
+
+      label.appendChild(checkbox);
+      label.appendChild(nameSpan);
+      label.appendChild(countSpan);
+
+      elCompanyFilterList.appendChild(label);
+    }
+
+    elCompanyFilterList.scrollTop = scrollPos;
+  }
+
+  function handleSelectAllCompanies() {
+    deselectedCompanies.clear();
+
+    if (elCompanyFilterList) {
+      const checkboxes = elCompanyFilterList.querySelectorAll('input[type="checkbox"]');
+      checkboxes.forEach(cb => { cb.checked = true; });
+    }
+
+    updateFilterBadge();
+    renderJobs();
+    void persistJobsAndState();
+  }
+
+  function handleDeselectAllCompanies() {
+    for (const job of allJobs) {
+      const name = (job.company && job.company.trim()) ? job.company.trim() : 'Unknown Company';
+      deselectedCompanies.add(name);
+    }
+
+    if (elCompanyFilterList) {
+      const checkboxes = elCompanyFilterList.querySelectorAll('input[type="checkbox"]');
+      checkboxes.forEach(cb => { cb.checked = false; });
+    }
+
+    updateFilterBadge();
+    renderJobs();
+    void persistJobsAndState();
   }
 
   // ── Storage Persistence ────────────────────────────────────────────────────
@@ -215,6 +376,7 @@
           moreAvailable: crawlState.moreAvailable,
           lastCrawledAt: new Date().toISOString(),
           searchContext,
+          deselectedCompanies: Array.from(deselectedCompanies),
         },
       });
     } catch (error) {
@@ -248,26 +410,8 @@
 
   // ── Open Job in Current Tab ────────────────────────────────────────────────
 
-  async function openJobInCurrentTab(jobUrlString) {
+  async function openJob(jobUrlString) {
     try {
-      const [tab] = await chrome.tabs.query({
-        active: true,
-        currentWindow: true,
-      });
-
-      if (!tab || tab.id == null || !tab.url) {
-        setStatus('Unable to find the current browser tab.');
-        return;
-      }
-
-      const currentUrl = new URL(tab.url);
-
-      const isSearchResultsPage =
-        currentUrl.protocol === 'https:' &&
-        currentUrl.hostname === LINKEDIN_HOST &&
-        currentUrl.pathname.startsWith('/jobs/search-results/');
-
-
       const jobUrl = new URL(jobUrlString);
 
       if (
@@ -286,19 +430,12 @@
         setStatus('Unable to determine this job ID.');
         return;
       }
-      if (isSearchResultsPage) {
-        // Preserve the search URL and open the selected job in the current tab.
-        currentUrl.searchParams.set('currentJobId', match[1]);
-
-        await chrome.tabs.update(tab.id, {
-          url: currentUrl.toString(),
-        });
-      } else {
-        // Not on a job search results page: use the old behavior.
-        await chrome.tabs.create({
+      
+      // Opening job in new tab
+      await chrome.tabs.create({
           url: jobUrlString,
         });
-      }
+      
     } catch (error) {
       console.error(
         '[LJS] Failed to open job in the current tab:',
@@ -444,7 +581,7 @@
       openBtn.textContent = 'Open';
 
       openBtn.addEventListener('click', function () {
-        void openJobInCurrentTab(validUrl);
+        void openJob(validUrl);
       });
 
       footer.appendChild(openBtn);
@@ -474,33 +611,30 @@
       ? elHideApplied.checked
       : false;
 
-    const easyApplyOnly = elEasyApply
+    const easyApply = elEasyApply
       ? elEasyApply.checked
+      : false;
+
+    const externalSite = elExternalSite
+      ? elExternalSite.checked
       : false;
 
     const sorted = LJS.sortJobs(allJobs, mode);
 
     const filtered = LJS.filterJobs(sorted, {
       query,
-      easyApplyOnly,
+      easyApply,
+      externalSite,
       hideViewed,
       hideApplied,
+      deselectedCompanies,
     });
 
     const total = allJobs.length;
     const shown = filtered.length;
 
     setJobCount(shown, total);
-
-    // Show Easy Apply filter only when relevant.
-    const hasEasyApply = allJobs.some(
-      job => job.easyApply === true
-    );
-
-    if (elEasyLabel) {
-      elEasyLabel.style.display =
-        hasEasyApply ? '' : 'none';
-    }
+    updateFilterBadge();
 
     if (controls) {
       controls.style.display = 'flex';
@@ -744,6 +878,7 @@
       crawlState.moreAvailable =
         !!message.hasNextPage;
 
+      updateCompanyFilterList();
       void persistJobsAndState();
 
       renderJobs();
@@ -782,6 +917,7 @@
         );
       }
 
+      updateCompanyFilterList();
       void persistJobsAndState();
       return;
     }
@@ -854,6 +990,7 @@
 
     allJobs = [];
     searchContext = null;
+    deselectedCompanies.clear();
 
     crawlState = {
       pagesCompleted: 0,
@@ -864,6 +1001,8 @@
     setJobCount(0, 0);
     setNotice('');
     updateFetchMoreVisibility(false);
+    updateCompanyFilterList();
+    updateFilterBadge();
 
     // 2. Resolve the active LinkedIn tab.
     const tab = await findLinkedInTab();
@@ -877,7 +1016,7 @@
 
     linkedInTabId = tab.id;
 
-    // 3. Validate the search URL and the Past 24 hours filter.
+    // 3. Validate the search URL and the date posted filter (Past 24 hours or Past week).
     const validation = LJS.validateSearchUrl(tab.url);
 
     if (!validation.valid) {
@@ -1021,15 +1160,45 @@
   }
 
   if (elHideViewed) {
-    elHideViewed.addEventListener('change', renderJobs);
+    elHideViewed.addEventListener('change', () => {
+      updateFilterBadge();
+      renderJobs();
+    });
   }
 
   if (elHideApplied) {
-    elHideApplied.addEventListener('change', renderJobs);
+    elHideApplied.addEventListener('change', () => {
+      updateFilterBadge();
+      renderJobs();
+    });
   }
 
   if (elEasyApply) {
-    elEasyApply.addEventListener('change', renderJobs);
+    elEasyApply.addEventListener('change', () => {
+      updateFilterBadge();
+      renderJobs();
+    });
+  }
+
+  if (elExternalSite) {
+    elExternalSite.addEventListener('change', () => {
+      updateFilterBadge();
+      renderJobs();
+    });
+  }
+
+  if (elBtnToggleFilters) {
+    elBtnToggleFilters.addEventListener('click', () => {
+      toggleFilters();
+    });
+  }
+
+  if (elBtnSelectAllCompanies) {
+    elBtnSelectAllCompanies.addEventListener('click', handleSelectAllCompanies);
+  }
+
+  if (elBtnDeselectAllCompanies) {
+    elBtnDeselectAllCompanies.addEventListener('click', handleDeselectAllCompanies);
   }
 
   // ── Initialization & Storage Restoration ───────────────────────────────────
@@ -1072,6 +1241,13 @@
           searchContext =
             crawlState.searchContext || null;
 
+          if (savedState && Array.isArray(savedState.deselectedCompanies)) {
+            deselectedCompanies = new Set(savedState.deselectedCompanies);
+          } else {
+            deselectedCompanies = new Set();
+          }
+
+          updateCompanyFilterList();
           renderJobs();
 
           updateFetchMoreVisibility(

@@ -116,12 +116,18 @@ describe('validateSearchUrl', () => {
     assert.equal(res.code, 'FILTER_REQUIRED');
   });
 
-  it('search URL with past week filter (f_TPR=r604800) returns FILTER_REQUIRED', () => {
+  it('search URL with past week filter (f_TPR=r604800) returns valid: true', () => {
     const res = validateSearchUrl(
       'https://www.linkedin.com/jobs/search-results/?keywords=engineer&f_TPR=r604800'
     );
-    assert.equal(res.valid, false);
-    assert.equal(res.code, 'FILTER_REQUIRED');
+    assert.equal(res.valid, true);
+  });
+
+  it('search URL with past hour filter (f_TPR=r3600) returns valid: true', () => {
+    const res = validateSearchUrl(
+      'https://www.linkedin.com/jobs/search-results/?keywords=engineer&f_TPR=r3600'
+    );
+    assert.equal(res.valid, true);
   });
 
   it('search URL with past month filter (f_TPR=r2592000) returns FILTER_REQUIRED', () => {

@@ -43,7 +43,7 @@
   /** The current page is not a LinkedIn jobs search results page (/jobs/search-results). */
   const NOT_SEARCH_PAGE = 'NOT_SEARCH_PAGE';
 
-  /** The 'Past 24 hours' date posted filter (f_TPR=r86400) is required before crawling. */
+  /** The 'Past 24 hours' or 'Past week' date posted filter (f_TPR <= r604800) is required before crawling. */
   const FILTER_REQUIRED = 'FILTER_REQUIRED';
 
   /** A jobs page was found but contained no job cards. */

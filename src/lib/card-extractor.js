@@ -265,10 +265,17 @@
       }
 
       if (/^viewed$/i.test(lower)) { viewed = true; continue; }
-      if (/^applied(\s|$)/i.test(lower)) { applied = true; continue; }
+      if (/^applied(?:\s+(?:just now|\d+\s*(?:d|day|m|min|minute|h|hour|w|week|mo|month|yr|year|s|sec|second)s?\s*ago|on\b.*|via\b.*))?$/i.test(lower)) {
+        applied = true;
+        continue;
+      }
       if (/^be an early applicant$/i.test(lower)) { earlyApplicant = true; continue; }
       if (/^easy apply$/i.test(lower)) { easyApply = true; continue; }
       if (/^promoted$/i.test(lower)) { promoted = true; continue; }
+
+      // Skip social/network and applicant insights
+      if (/^\d+\s+(?:(?:school\s+)?alumni|connections?)\s+works?\s+here/i.test(lower)) continue;
+      if (/^(?:actively\s+(?:reviewing|hiring)|over\s+\d+\s+people\s+clicked\s+apply|\d+\s+applicants)/i.test(lower)) continue;
 
       // Content candidate
       contentCandidates.push(p);

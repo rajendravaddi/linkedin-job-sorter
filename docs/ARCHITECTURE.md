@@ -51,13 +51,13 @@ linkedin-job-sorter/
 │   │   ├── card-a.html            # Static HTML card with posting time
 │   │   ├── card-b.html            # Static HTML card with "Viewed" label (missing time)
 │   │   └── multi-cards.html       # Multi-card fixture for integration tests
-│   ├── card-extractor.test.js     # DOM extraction assertions against real markup fixtures
+│   ├── card-extractor.test.js     # DOM extraction assertions & regression tests against real markup fixtures
 │   ├── crawler-dom.test.js        # Next-button detection & loader-detection unit tests
 │   ├── deduplicate-jobs.test.js   # Deduplication & field-merging unit tests
-│   ├── job-filter.test.js         # Filtering logic unit tests
+│   ├── job-filter.test.js         # Filtering logic (apply process, companies, hide) unit tests
 │   ├── job-sorter.test.js         # Sorting modes and tie-breaker unit tests
 │   ├── posted-time-parser.test.js # Regex parsing & unit multiplier test suite
-│   └── search-context.test.js     # Search context & URL validation unit tests
+│   └── search-context.test.js     # Search context & URL validation unit tests (172 tests total)
 └── docs/
     ├── ARCHITECTURE.md            # Architecture, data flow, and technical specifications
     ├── DEVELOPMENT.md             # Developer guide, debugging, testing, release packaging
@@ -210,10 +210,11 @@ Each card's paragraphs (`<p>`) are scanned sequentially and categorized:
 - **Separator**: Contains only `·` or whitespace -> skipped.
 - **Posting Label**: Starts with `"Posted"` or `"Reposted"`, or matches `parsePostedLabel` -> saved as `postingParagraph`.
 - **Viewed Indicator**: Matches `/^viewed$/i` -> sets `viewed = true`. (Note: LinkedIn replaces the posting label with *"Viewed"* once a job is clicked).
-- **Applied Indicator**: Matches `/^applied(\s|$)/i` -> sets `applied = true`.
+- **Applied Indicator**: Matches strict pattern `/^applied(?:\s+(?:just now|\d+\s*(?:d|day|m|min|minute|h|hour|w|week|mo|month|yr|year|s|sec|second)s?\s*ago|on\b.*|via\b.*))?$/i` -> sets `applied = true`. Job titles starting with "Applied" (e.g. *"Applied AI Engineer"*) are explicitly preserved as titles.
 - **Early Applicant**: Matches `/^be an early applicant$/i` -> sets `earlyApplicant = true`.
 - **Easy Apply**: Matches `/^easy apply$/i` -> sets `easyApply = true`.
 - **Promoted**: Matches `/^promoted$/i` -> sets `promoted = true`.
+- **Social & Applicant Insights**: Paragraphs matching `/^\d+\s+(?:(?:school\s+)?alumni|connections?)\s+works?\s+here/i` or `/^(?:actively\s+(?:reviewing|hiring)|over\s+\d+\s+people\s+clicked\s+apply|\d+\s+applicants)/i` are skipped so they cannot be misclassified as company or location.
 - **Content Candidates**: Remaining paragraphs in positional order:
   1. Index 0: **Job Title** (cleaned of any dismiss labels; fallback to dismiss button `aria-label`).
   2. Index 1: **Company Name**.
@@ -271,10 +272,15 @@ When crawling across multiple pages, LinkedIn's live feed frequently duplicates 
 - **Tie-Breaking**: Equal ages are tie-broken by `originalIndex` to preserve original listing stability.
 
 ### 7.3 Filtering (`src/lib/job-filter.js`)
-- **Query**: Case-insensitive substring match against `job.title` OR `job.company`.
-- **Hide Viewed**: Excludes cards where `job.viewed === true`.
-- **Hide Applied**: Excludes cards where `job.applied === true`.
-- **Easy Apply Only**: Retains only cards where `job.easyApply === true`.
+The filtering engine accepts an array of job records and a filter options object:
+- **Query (`query`)**: Case-insensitive substring match against `job.title` OR `job.company`.
+- **Apply Process (`easyApply`, `externalSite`)**:
+  - `easyApply: true, externalSite: false`: Retains only jobs where `job.easyApply === true`.
+  - `easyApply: false, externalSite: true`: Retains only jobs without Easy Apply (`job.easyApply !== true`).
+  - Both true or both false: No filtering on apply route (all jobs pass).
+- **Hide Viewed (`hideViewed`)**: Excludes cards where `job.viewed === true`.
+- **Hide Applied (`hideApplied`)**: Excludes cards where `job.applied === true`.
+- **Company Filtering (`deselectedCompanies`)**: A `Set` or `Array` of company names to exclude. Jobs with empty/null companies are treated as `"Unknown Company"`.
 
 ---
 
@@ -284,7 +290,11 @@ The crawling loop in [`src/content/crawler.js`](../src/content/crawler.js) opera
 
 ### 8.1 Constraints & Enforcement
 1. **Target Page Validation**: Must be on `https://www.linkedin.com/jobs/search...`.
-2. **"Past 24 hours" Enforcement**: The URL must contain the query parameter `f_TPR=r86400`. If missing or set to another interval (e.g., past week `r604800` or past month `r2592000`), the extension rejects crawling with error code `FILTER_REQUIRED`.
+2. **Date Filter Enforcement**: The URL must contain the query parameter `f_TPR=r(\d+)` where the duration is less than or equal to 7 days (`seconds <= 604800`). Supported LinkedIn filters include:
+   - "Past 24 hours" (`f_TPR=r86400`)
+   - "Past week" (`f_TPR=r604800`)
+   - "Past hour" (`f_TPR=r3600`)
+   If missing or set to a longer interval (e.g., past month `r2592000`), the extension rejects crawling with error code `FILTER_REQUIRED`.
 3. **Safety Page Limit**: Crawls run in batches of up to **10 pages** (~250 jobs) per execution to avoid throttling or runaway memory consumption.
 
 ### 8.2 Pagination Mechanism
@@ -324,13 +334,15 @@ chrome.storage.session
         keywords: string | null,
         location: string | null,
         dateFilterLabel: string | null
-      }
+      },
+      deselectedCompanies: Array<string>
     }
 ```
 
 - **Persistence Scope**: Data is stored using `chrome.storage.session`. This guarantees data persists if the user toggles the side panel or changes browser focus, but automatically clears when the browser is closed.
-- **Explicit Reset ("Refresh")**: Clicking "Refresh" clears `ljs_jobs` and `ljs_crawl_state` from storage, resets in-memory variables, updates the tab URL to `start=0`, and launches a fresh 10-page crawl.
-- **Batch Continuation ("Fetch More")**: Clicking "Fetch More" increments the batch counter (`startPageNumber = pagesCompleted + 1`), keeps existing jobs, and invokes `LJS_CRAWL_CONTINUE` with `advanceFirst: true`.
+- **Filter State**: The set of deselected companies is stored in `deselectedCompanies` so custom company filters are preserved when the panel is reopened.
+- **Explicit Reset ("Refresh")**: Clicking "Refresh" clears `ljs_jobs` and `ljs_crawl_state` from storage, resets in-memory variables and company filters, updates the tab URL to `start=0`, and launches a fresh 10-page crawl.
+- **Batch Continuation ("Fetch More")**: Clicking "Fetch More" increments the batch counter (`startPageNumber = pagesCompleted + 1`), keeps existing jobs and filter states, and invokes `LJS_CRAWL_CONTINUE` with `advanceFirst: true`.
 
 ---
 

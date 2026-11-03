@@ -26,17 +26,54 @@
     </header>
 
     <div class="controls" id="controls">
-      <input type="text" id="filter-query" placeholder="Filter by title or company" aria-label="Filter by title or company">
+      <div class="search-row">
+        <input type="text" id="filter-query" placeholder="Filter by title or company" aria-label="Filter by title or company">
+        <button type="button" id="btn-toggle-filters" class="btn-toggle-filters" aria-expanded="false" aria-controls="collapsible-filters" aria-label="Toggle filters">
+          <span>Filters</span>
+          <span id="active-filter-badge" class="filter-badge" style="display:none">0</span>
+          <span id="filter-arrow" class="filter-arrow" aria-hidden="true">▼</span>
+        </button>
+      </div>
 
-      <label class="checkbox-label">
-        <input type="checkbox" id="filter-hide-viewed"> Hide viewed
-      </label>
-      <label class="checkbox-label">
-        <input type="checkbox" id="filter-hide-applied"> Hide applied
-      </label>
-      <label class="checkbox-label" id="easy-apply-label" style="display:none">
-        <input type="checkbox" id="filter-easy-apply"> Easy Apply only
-      </label>
+      <div id="collapsible-filters" class="collapsible-filters" style="display:none">
+        <!-- Subsection 1: Apply process -->
+        <div class="filter-subsection">
+          <div class="filter-subsection-title">Apply process</div>
+          <div class="filter-subsection-chips">
+            <label class="checkbox-label">
+              <input type="checkbox" id="filter-easy-apply"> Easy Apply
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="filter-external-site"> External site
+            </label>
+          </div>
+        </div>
+
+        <!-- Subsection 2: Hide -->
+        <div class="filter-subsection">
+          <div class="filter-subsection-title">Hide</div>
+          <div class="filter-subsection-chips">
+            <label class="checkbox-label">
+              <input type="checkbox" id="filter-hide-viewed"> Viewed jobs
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="filter-hide-applied"> Applied jobs
+            </label>
+          </div>
+        </div>
+
+        <!-- Subsection 3: Filter companies -->
+        <div class="filter-subsection">
+          <div class="filter-subsection-header">
+            <div class="filter-subsection-title">Filter companies</div>
+            <div class="company-action-buttons">
+              <button type="button" id="btn-select-all-companies" class="btn-company-action">Select all</button>
+              <button type="button" id="btn-deselect-all-companies" class="btn-company-action">Deselect all</button>
+            </div>
+          </div>
+          <div id="company-filter-list" class="company-filter-list" role="group" aria-label="Filter by company"></div>
+        </div>
+      </div>
     </div>
 
     <div id="status" class="status" aria-live="polite"></div>

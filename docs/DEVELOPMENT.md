@@ -164,7 +164,7 @@ To produce a production zip file ready for deployment or manual distribution:
 From the project root directory, run:
 
 ```bash
-zip -r linkedin-job-sorter-v1.0.0.zip \
+zip -r linkedin-job-sorter-v2.0.0.zip \
   manifest.json \
   assets/ \
   src/ \
@@ -175,7 +175,7 @@ zip -r linkedin-job-sorter-v1.0.0.zip \
 
 Before publishing or distributing the zip package, verify its contents:
 
-- [ ] **Archive Structure**: `unzip -l linkedin-job-sorter-v1.0.0.zip`
+- [ ] **Archive Structure**: `unzip -l linkedin-job-sorter-v2.0.0.zip`
 - [ ] **Required Runtime Files Present**:
   - [ ] `manifest.json`
   - [ ] `assets/icons/icon16.png`

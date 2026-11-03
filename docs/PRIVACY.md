@@ -26,7 +26,7 @@ When crawling or extracting from the LinkedIn search feed, the extension extract
 The extension reads URL query parameters from the active tab:
 - `keywords`: The search terms entered by the user.
 - `location`: The location filter entered by the user.
-- `f_TPR`: The date-posted filter parameter (must be `r86400` / "Past 24 hours").
+- `f_TPR`: The date-posted filter parameter (must be past week or less, e.g. `r86400` / "Past 24 hours" or `r604800` / "Past week").
 
 ### 1.3 Data Specifically NOT Collected
 The extension does **not** read, process, or store:
@@ -43,7 +43,7 @@ The extension does **not** read, process, or store:
 ### 2.1 Where Data is Stored
 Extracted job listings and pagination states are stored exclusively in **`chrome.storage.session`** using two storage keys:
 1. `ljs_jobs`: An array containing the extracted job records for the current crawl.
-2. `ljs_crawl_state`: An object tracking pagination progress (`pagesCompleted`, `moreAvailable`, `lastCrawledAt`, and `searchContext`).
+2. `ljs_crawl_state`: An object tracking pagination progress (`pagesCompleted`, `moreAvailable`, `lastCrawledAt`, `searchContext`, and `deselectedCompanies`).
 
 ### 2.2 Storage Lifecycle
 - **In-Memory Retention**: `chrome.storage.session` keeps data in memory for the duration of the browser session. Data persists across side-panel open/close events or background tab switching.
@@ -89,5 +89,5 @@ Users have full control over their extracted session data:
 
 ## 6. Disclaimer
 
-This document reflects the verified behavior of the codebase as of extension version `1.0.0`. It serves as technical documentation of data handling practices and a starting point for public privacy disclosures. It does not constitute formal legal advice or an automated certification of compliance with specific regional privacy regulations or Chrome Web Store developer program policies.
+This document reflects the verified behavior of the codebase as of extension version `2.0.0`. It serves as technical documentation of data handling practices and a starting point for public privacy disclosures. It does not constitute formal legal advice or an automated certification of compliance with specific regional privacy regulations or Chrome Web Store developer program policies.
 
