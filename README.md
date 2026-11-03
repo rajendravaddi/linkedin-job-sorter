@@ -30,8 +30,13 @@ https://github.com/user-attachments/assets/489249fe-bc82-4431-b850-320ab27e3534
 - **On-Demand "Fetch More"**: Fetch subsequent 10-page batches with a single click without restarting or losing collected jobs.
 - **Estimated Age Parsing**: Converts relative labels (*"Posted 15 minutes ago"*, *"3 hours ago"*, *"just now"*, *"Reposted 2 days ago"*) into numeric minutes for accurate sorting.
 - **Chronological Sorting**: Automatically surfaces the newest opportunities first, with unknown ages (viewed or applied jobs) placed at the bottom.
-- **In-Memory Session Persistence**: Extracted listings and crawl state persist in `chrome.storage.session` across side panel toggles and tab switches.
-- **Live Search Filtering**: Filter visible listings instantly by job title, company name, Easy Apply flag, or hide previously viewed and applied roles.
+- **In-Memory Session Persistence**: Extracted listings, crawl progress, and deselected companies persist in `chrome.storage.session` across side panel toggles and tab switches.
+- **Collapsible Filtering Panel**:
+  - **Apply Process**: Filter by `Easy Apply` or `External site` (or both/neither for all jobs).
+  - **Hide Options**: Easily toggle off `Viewed jobs` and `Applied jobs`.
+  - **Company Filter**: Scrollable checklist of all unique companies with job counts (e.g., `Google (3)`) and "Select all" / "Deselect all" buttons.
+  - **Text Search**: Real-time substring matching across job titles and company names.
+- **Relaxed Date Filter Support**: Supports searches filtered to "Past 24 hours" (`r86400`), "Past week" (`r604800`), or "Past hour" (`r3600`).
 - **Native Side Panel UI**: Docks beside your active LinkedIn search tab without auto-closing when you click on the page or switch tabs.
 - **Smart Job Opening**: Selects jobs directly in LinkedIn's split view on search results pages without reloading or navigating away.
 - **Privacy First & Local Only**: Zero external network requests, zero telemetry, no tracking scripts, and no persistent disk storage.
@@ -41,10 +46,10 @@ https://github.com/user-attachments/assets/489249fe-bc82-4431-b850-320ab27e3534
 ## How It Works
 
 1. **Activation**: Clicking the extension icon opens the Side Panel docked alongside your LinkedIn tab.
-2. **Search Validation**: The extension checks that you are on a LinkedIn job search page (`/jobs/search`) with the **Past 24 hours** filter applied (`f_TPR=r86400`).
+2. **Search Validation**: The extension checks that you are on a LinkedIn job search page (`/jobs/search`) with the **Past 24 hours** or **Past week** filter applied (`f_TPR <= r604800`).
 3. **Crawl & Extract**: Clicking **Refresh** resets the page to `start=0` and begins crawling. For each page, content scripts extract job cards from the DOM, handle screen-reader duplicate text, parse relative timestamps, and send progress updates to the panel.
 4. **Deduplication & Storage**: Jobs are deduplicated by numeric ID or URL and saved to `chrome.storage.session`.
-5. **Sort & Filter**: The UI sorts the aggregated list (newest first) and applies active user filters in real time.
+5. **Sort & Filter**: The UI sorts the aggregated list (newest first) and applies active user filters (text query, apply process, hide viewed/applied, and company selections) in real time.
 
 ---
 
@@ -83,7 +88,7 @@ linkedin-job-sorter/
 │   │   └── popup.js           # Side panel UI controller
 │   └── shared/
 │       └── messages.js        # Shared message types & error codes
-├── tests/                     # Automated unit test suite (161 tests)
+├── tests/                     # Automated unit test suite (172 tests)
 └── docs/                      # Comprehensive technical documentation
 ```
 
@@ -118,7 +123,7 @@ Run the automated unit test suite:
 npm test
 ```
 
-This executes all 161 tests across 16 test suites using Node's native test runner (`node --test tests/*.test.js`).
+This executes all 172 tests across 19 test suites using Node's native test runner (`node --test tests/*.test.js`).
 
 To verify syntax across all JavaScript files:
 ```bash
@@ -132,12 +137,16 @@ node -c src/**/*.js tests/**/*.js
 1. Open Chrome and navigate to LinkedIn Job Search:  
    `https://www.linkedin.com/jobs/search-results/`
 2. Enter your desired job title/keyword and location.
-3. In LinkedIn's search filters, set the **Date posted** filter to **Past 24 hours**.
+3. In LinkedIn's search filters, set the **Date posted** filter to **Past 24 hours** or **Past week**.
 4. Click the **LinkedIn Job Sorter** extension icon in your Chrome toolbar to open the Side Panel.
 5. Click **Start** to initiate multi-page crawling starting from page 1.
 6. As jobs load, watch the progress bar and live job count.
 7. If more than 10 pages exist, click **Fetch More** to crawl the next 10 pages.
-8. Filter the list by title or company, hide viewed/applied roles, or check "Easy Apply only".
+8. Click **Filters** to open the collapsible filter panel:
+   - Select **Easy Apply** or **External site** in Apply process.
+   - Toggle **Viewed jobs** or **Applied jobs** in Hide.
+   - Check or uncheck specific companies under **Filter companies** (or use **Select all** / **Deselect all**).
+   - Use the search bar to filter by title or company keyword.
 9. Click **Open** on any job card to select it in LinkedIn's split view.
 
 ---
@@ -146,7 +155,7 @@ node -c src/**/*.js tests/**/*.js
 
 - **Relative Time Granularity**: LinkedIn rounds timestamps (e.g., *"3 hours ago"*, *"1 day ago"*). Jobs posted within the same rounding window cannot be distinguished beyond LinkedIn's reported precision.
 - **Viewed and Applied Jobs**: LinkedIn replaces posting-time labels with *"Viewed"* or *"Applied"* once interacted with. These jobs receive `ageMinutes: null` and appear at the end of the list.
-- **Search Page & Date Filter Requirement**: To prevent runaway pagination through thousands of stale results, the crawler strictly requires the "Past 24 hours" filter (`f_TPR=r86400`) on a `/jobs/search` page.
+- **Search Page & Date Filter Requirement**: To prevent runaway pagination through thousands of stale results, the crawler requires a date filter of Past week or less (e.g. Past 24 hours `f_TPR=r86400` or Past week `f_TPR=r604800`) on a `/jobs/search` page.
 - **DOM Structure Dependency**: The parser relies on semantic attributes (`componentkey`, ARIA roles, `data-testid`). Substantial redesigns to LinkedIn's markup may require selector updates.
 - **English Locale**: The timestamp parser currently recognizes English relative time expressions.
 

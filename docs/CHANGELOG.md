@@ -6,7 +6,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
-## [1.0.0] - Unreleased (Planned Initial Release)
+## [2.0.0] - 2026-11-03
+
+### Added
+- **Collapsible Filters Section (`src/popup/popup.html`, `src/popup/popup.css`, `src/popup/popup.js`)**:
+  - Vertically expandable filters container toggled by a dedicated "Filters" button in the search row.
+  - Live active filter count badge (`#active-filter-badge`) and animated chevron arrow indicator.
+  - **Subsection 1 (Apply Process)**: Checkboxes for `Easy Apply` and `External site`. Checking both or checking neither displays all jobs; selecting either exclusively filters by that application route.
+  - **Subsection 2 (Hide)**: Checkboxes for `Viewed jobs` and `Applied jobs`.
+  - **Subsection 3 (Filter Companies)**: Dynamic, alphabetical list of all unique company names from crawled jobs with job counts (e.g. `Google (3)`). Only selected companies are displayed (all selected by default).
+  - **Company Quick Actions**: "Select all" and "Deselect all" helper buttons to manage company selections with one click.
+  - **Scrollable Company Container**: Scroll-locked container (`max-height: 140px; overflow-y: auto`) with styled scrollbars ensuring zero layout overflow. Checkbox clicks preserve scroll position.
+  - **Filter State Persistence**: Deselected company state is stored in `chrome.storage.session` and restored across side panel open/close cycles.
+- **Relaxed Date Filter Enforcement (`src/lib/search-context.js`)**:
+  - Updated `validateSearchUrl` to accept any date-posted filter less than or equal to "Past week" (`f_TPR <= r604800`), supporting "Past hour" (`r3600`), "Past 24 hours" (`r86400`), and "Past week" (`r604800`).
+  - Updated status banners and initial instructions to guide users to apply "Past 24 hours" or "Past week" filters.
+
+### Fixed
+- **Card Extractor "Applied" Title Collision (`src/lib/card-extractor.js`)**:
+  - Tightened the regex for detecting the "Applied" badge so that job titles starting with "Applied" (such as *"Applied AI Engineer"*, *"Applied Scientist"*, etc.) are not falsely classified as an applied status badge.
+  - Resolved cascading extraction errors where title was skipped, company became title, location became company, and footer insights became location.
+- **Social & Applicant Insights Exclusion (`src/lib/card-extractor.js`)**:
+  - Filtered out social and connection lines (e.g. *"1 school alumni works here"*, *"1 connection works here"*, *"Actively reviewing applicants"*) so they are never misclassified as company or location fields.
+
+### Changed
+- **Aligned Filter Contract (`src/lib/job-filter.js`)**:
+  - Refactored `filterJobs` to strictly expect the exact 6 parameters passed from `popup.js`: `query`, `easyApply`, `externalSite`, `hideViewed`, `hideApplied`, and `deselectedCompanies`.
+  - Removed deprecated parameters: `knownTimeOnly`, `easyApplyOnly`, and unused `selectedCompanies`.
+- **Test Suite Updates**:
+  - Added unit test suites for Apply process combinations, company filtering, and regression test cases for "Applied" titles. Total passing tests: 172 across 19 suites.
+
+---
+
+## [1.0.0] - 2026-10-20
 
 ### Added
 - **Multi-Page Crawling Engine (`src/content/crawler.js`)**:

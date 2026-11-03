@@ -78,7 +78,7 @@ All contributions must maintain our high bar of test coverage and code reliabili
 2. **Add Unit Tests for New Features**:
    - If adding a new time-string format, add cases to `tests/posted-time-parser.test.js`.
    - If updating DOM extraction or selectors, add fixtures or test assertions to `tests/card-extractor.test.js` or `tests/crawler-dom.test.js`.
-   - If changing sorting, deduplication, or filtering, add corresponding unit tests in `tests/`.
+   - If changing sorting, deduplication, or filtering (such as apply process or company filters), add corresponding unit tests in `tests/job-filter.test.js`.
 3. **Run Syntax Checks**:
    ```bash
    node -c src/**/*.js tests/**/*.js
