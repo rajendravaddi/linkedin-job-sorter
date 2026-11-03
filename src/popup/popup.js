@@ -248,26 +248,8 @@
 
   // ── Open Job in Current Tab ────────────────────────────────────────────────
 
-  async function openJobInCurrentTab(jobUrlString) {
+  async function openJob(jobUrlString) {
     try {
-      const [tab] = await chrome.tabs.query({
-        active: true,
-        currentWindow: true,
-      });
-
-      if (!tab || tab.id == null || !tab.url) {
-        setStatus('Unable to find the current browser tab.');
-        return;
-      }
-
-      const currentUrl = new URL(tab.url);
-
-      const isSearchResultsPage =
-        currentUrl.protocol === 'https:' &&
-        currentUrl.hostname === LINKEDIN_HOST &&
-        currentUrl.pathname.startsWith('/jobs/search-results/');
-
-
       const jobUrl = new URL(jobUrlString);
 
       if (
@@ -286,19 +268,12 @@
         setStatus('Unable to determine this job ID.');
         return;
       }
-      if (isSearchResultsPage) {
-        // Preserve the search URL and open the selected job in the current tab.
-        currentUrl.searchParams.set('currentJobId', match[1]);
-
-        await chrome.tabs.update(tab.id, {
-          url: currentUrl.toString(),
-        });
-      } else {
-        // Not on a job search results page: use the old behavior.
-        await chrome.tabs.create({
+      
+      // Opening job in new tab
+      await chrome.tabs.create({
           url: jobUrlString,
         });
-      }
+      
     } catch (error) {
       console.error(
         '[LJS] Failed to open job in the current tab:',
@@ -444,7 +419,7 @@
       openBtn.textContent = 'Open';
 
       openBtn.addEventListener('click', function () {
-        void openJobInCurrentTab(validUrl);
+        void openJob(validUrl);
       });
 
       footer.appendChild(openBtn);
