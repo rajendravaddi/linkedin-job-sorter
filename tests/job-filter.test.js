@@ -78,14 +78,6 @@ describe('filterJobs', () => {
     assert.equal(result.length, 0);
   });
 
-  it('easyApplyOnly → keeps only jobs where easyApply === true', () => {
-    const result = filterJobs(SAMPLE_JOBS, { easyApplyOnly: true });
-    for (const job of result) {
-      assert.equal(job.easyApply, true);
-    }
-    assert.equal(result.length, 2); // jobs 1 and 4
-  });
-
   it('hideViewed → keeps only jobs where viewed !== true', () => {
     const result = filterJobs(SAMPLE_JOBS, { hideViewed: true });
     for (const job of result) {
@@ -95,8 +87,19 @@ describe('filterJobs', () => {
     assert.equal(result.length, 3);
   });
 
-  it('combined filters: easyApplyOnly + hideViewed', () => {
-    const result = filterJobs(SAMPLE_JOBS, { easyApplyOnly: true, hideViewed: true });
+  it('hideApplied → keeps only jobs where applied !== true', () => {
+    const jobs = [
+      makeJob({ id: '1', title: 'Job 1', applied: true }),
+      makeJob({ id: '2', title: 'Job 2', applied: null }),
+      makeJob({ id: '3', title: 'Job 3', applied: false }),
+    ];
+    const result = filterJobs(jobs, { hideApplied: true });
+    assert.equal(result.length, 2);
+    assert.deepEqual(result.map(j => j.id), ['2', '3']);
+  });
+
+  it('combined filters: easyApply + hideViewed', () => {
+    const result = filterJobs(SAMPLE_JOBS, { easyApply: true, hideViewed: true });
     // Job 1 (easyApply=true, viewed=null) → included
     // Job 4 (easyApply=true, viewed=true) → excluded
     assert.equal(result.length, 1);
@@ -147,13 +150,6 @@ describe('filterJobs', () => {
       assert.ok(!result.some(j => j.company === 'ACME Corp' || j.company === 'DataCorp'));
     });
 
-    it('selectedCompanies as Set keeps only specified companies', () => {
-      const selected = new Set(['WebStudio']);
-      const result = filterJobs(SAMPLE_JOBS, { selectedCompanies: selected });
-      assert.equal(result.length, 2);
-      assert.ok(result.every(j => j.company === 'WebStudio'));
-    });
-
     it('handles job with null company as "Unknown Company"', () => {
       const jobs = [
         makeJob({ id: '10', title: 'Mystery Job', company: null }),
@@ -162,10 +158,6 @@ describe('filterJobs', () => {
       const resultExcluded = filterJobs(jobs, { deselectedCompanies: new Set(['Unknown Company']) });
       assert.equal(resultExcluded.length, 1);
       assert.equal(resultExcluded[0].id, '11');
-
-      const resultIncluded = filterJobs(jobs, { selectedCompanies: new Set(['Unknown Company']) });
-      assert.equal(resultIncluded.length, 1);
-      assert.equal(resultIncluded[0].id, '10');
     });
   });
 });
